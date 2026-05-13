@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>lofy — Music. Color. Live.</title>
+<meta name="description" content="A browser-native DJ visualizer. Real-time beat-reactive visuals — synced to your music in milliseconds. No install, no login, no backend.">
+<meta name="theme-color" content="#0a0a0d">
+
+<link rel="manifest" href="./manifest.json">
+<link rel="icon" type="image/svg+xml" href="./assets/favicon.svg">
+<link rel="apple-touch-icon" href="./assets/icon-192.png">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bagel+Fat+One&family=JetBrains+Mono:wght@300;400;500;700&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
+
+<link rel="stylesheet" href="./css/main.css">
+<link rel="stylesheet" href="./css/landing.css">
+</head>
+<body class="landing grain">
+
+<nav>
+  <div class="brand"><span class="brand-dot"></span> lofy</div>
+  <div class="nav-links">
+    <a href="#modes">Modes</a>
+    <a href="#how">How</a>
+    <a href="./app.html">Launch</a>
+    <a href="#about">About</a>
+  </div>
+  <div class="nav-meta">v1.0 · <span>● LIVE</span></div>
+</nav>
+
+<div class="ticker" aria-hidden="true">
+  <div class="ticker-track">
+    <span>NO INSTALL</span><span>NO LOGIN</span><span>NO BACKEND</span><span>60 FPS</span><span>WEB AUDIO API</span><span>FULLSCREEN READY</span><span>MIC · FILE · TAB</span><span>FREE FOREVER</span>
+    <span>NO INSTALL</span><span>NO LOGIN</span><span>NO BACKEND</span><span>60 FPS</span><span>WEB AUDIO API</span><span>FULLSCREEN READY</span><span>MIC · FILE · TAB</span><span>FREE FOREVER</span>
+  </div>
+</div>
+
+<section class="hero">
+  <div class="hero-left">
+    <div class="eyebrow reveal d1">A DJ visualizer for the browser</div>
+    <h1 class="reveal d2">
+      <span class="l-music">MUSIC.</span>
+      <span class="l-color">COLOR<em>&amp;</em></span>
+      <span class="l-live">LIVE</span>
+    </h1>
+    <p class="sub reveal d3">
+      Open a tab. Play a track. The room <b>comes alive.</b><br>
+      Real-time beat-reactive visuals — synced to your mix in milliseconds. No install, no login, no backend. Pure browser.
+    </p>
+    <div class="cta-row reveal d4">
+      <a class="btn-primary" href="./app.html">
+        Launch lofy
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" stroke-width="2" stroke-linecap="square"/></svg>
+      </a>
+      <a class="btn-ghost" href="#how">How it works →</a>
+    </div>
+    <div class="trust-row reveal d5">
+      <div>30 sec to wow</div>
+      <div>HDMI out ready</div>
+      <div>Strobe-safe</div>
+    </div>
+  </div>
+
+  <div class="hero-right reveal d3">
+    <div class="float-tag t1">live ✦ reactive</div>
+    <div class="canvas-frame">
+      <div class="canvas-chrome">
+        <div class="dots"><i></i><i></i><i></i></div>
+        <div>CH 01 · SPECTRUM · 60FPS</div>
+      </div>
+      <div class="bpm-badge">
+        <div class="bpm-dot"></div>
+        <div>
+          <div class="bpm-val" id="bpmVal">128</div>
+          <div class="bpm-lbl">BPM · demo</div>
+        </div>
+      </div>
+      <canvas id="heroCanvas"></canvas>
+      <div class="canvas-foot">
+        <div>● DEMO MODE</div>
+        <div class="mode-pills">
+          <button class="mode-pill active" data-mode="spectrum">Spectrum</button>
+          <button class="mode-pill" data-mode="flash">Flash</button>
+          <button class="mode-pill" data-mode="particles">Particles</button>
+        </div>
+      </div>
+    </div>
+    <div class="float-tag t2">no install. no cap.</div>
+  </div>
+</section>
+
+<section class="modes" id="modes">
+  <div class="modes-head">
+    <h2>Three modes. <em>One vibe.</em></h2>
+    <div class="count">[ <span>03</span> · VISUAL ENGINES ]</div>
+  </div>
+  <div class="modes-grid">
+    <div class="mode-card">
+      <div class="num">MODE <span>/01</span></div>
+      <h3>Spectrum<br>Bars</h3>
+      <p>FFT-driven bars across the canvas. Low end paints the left, highs the right. Peak dots float with a slow decay — it breathes with the track.</p>
+      <div class="specs"><span>FFT <b>2048</b></span><span>BARS <b>64</b></span><span>60FPS</span></div>
+      <div class="vis"><canvas id="vis1"></canvas></div>
+    </div>
+    <div class="mode-card">
+      <div class="num">MODE <span>/02</span></div>
+      <h3>Beat<br>Flash</h3>
+      <p>Whole canvas pulses on every kick. Color cycles through your palette beat by beat. Strobe guard caps it at 3Hz so nobody falls over.</p>
+      <div class="specs"><span>BAND <b>20–200Hz</b></span><span>LERP <b>300MS</b></span><span>SAFE</span></div>
+      <div class="vis"><canvas id="vis2"></canvas></div>
+    </div>
+    <div class="mode-card">
+      <div class="num">MODE <span>/03</span></div>
+      <h3>Particle<br>Storm</h3>
+      <p>Beats explode out of the center. 500 particles at full tilt, each radiating with a lifespan tied to mid-band energy. Pure dancefloor chaos.</p>
+      <div class="specs"><span>PARTICLES <b>500</b></span><span>RADIAL</span><span>GPU FRIENDLY</span></div>
+      <div class="vis"><canvas id="vis3"></canvas></div>
+    </div>
+  </div>
+</section>
+
+<section class="how" id="how">
+  <div class="how-head">From silence to <b>showtime</b> in <b>three moves.</b></div>
+  <div class="steps">
+    <div class="step">
+      <div class="step-num">01</div>
+      <h4>Pick your source</h4>
+      <p>Mic, file upload, or capture a browser tab. Web Audio handles it — your audio never leaves the device.</p>
+    </div>
+    <div class="step">
+      <div class="step-num">02</div>
+      <h4>Choose a mode</h4>
+      <p>Spectrum, Flash, or Particles. Hit a palette. Slide the sensitivity. Save it as a preset for next gig.</p>
+    </div>
+    <div class="step">
+      <div class="step-num">03</div>
+      <h4>Press F. Go full.</h4>
+      <p>HDMI to a TV or projector. The room responds to every beat. That's it — you're running visuals.</p>
+    </div>
+  </div>
+</section>
+
+<footer class="foot" id="about">
+  <div class="foot-mega">lofy</div>
+  <div class="foot-row">
+    <div>© 2026 lofy · v1.0</div>
+    <div style="display:flex;gap:24px">
+      <a href="./app.html">Launch</a>
+      <a href="#modes">Modes</a>
+      <a href="#how">How</a>
+      <a href="./app.html#settings">Settings</a>
+    </div>
+    <div>BUILT FOR THE BROWSER</div>
+  </div>
+  <div class="strobe">Contains flashing lights. Strobe guard is on by default — toggle in Settings.</div>
+</footer>
+
+<script src="./js/landing.js"></script>
+<script>
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js').catch(()=>{}));
+  }
+</script>
+</body>
+</html>

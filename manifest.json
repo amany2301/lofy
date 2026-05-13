@@ -1,0 +1,21 @@
+{
+  "name": "lofy — DJ Visualizer",
+  "short_name": "lofy",
+  "description": "Browser-native DJ visualizer. Real-time beat-reactive visuals synced to your music.",
+  "start_url": "./app.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#0a0a0d",
+  "theme_color": "#0a0a0d",
+  "categories": ["music", "entertainment", "utilities"],
+  "icons": [
+    { "src": "./assets/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
+    { "src": "./assets/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" },
+    { "src": "./assets/icon.svg",     "sizes": "any",      "type": "image/svg+xml", "purpose": "any" }
+  ],
+  "shortcuts": [
+    { "name": "Launch Visualizer",  "url": "./app.html",                "icons": [{ "src": "./assets/icon-192.png", "sizes": "192x192" }] },
+    { "name": "Home",               "url": "./index.html" }
+  ]
+}

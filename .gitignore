@@ -1,0 +1,10 @@
+# local editor/agent state
+.claude/
+.DS_Store
+.vscode/
+.idea/
+
+# logs / temp
+*.log
+.tmp/
+node_modules/

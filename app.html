@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>lofy — Visualizer</title>
+<meta name="theme-color" content="#000000">
+
+<link rel="manifest" href="./manifest.json">
+<link rel="icon" type="image/svg+xml" href="./assets/favicon.svg">
+<link rel="apple-touch-icon" href="./assets/icon-192.png">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bagel+Fat+One&family=JetBrains+Mono:wght@300;400;500;700&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
+
+<link rel="stylesheet" href="./css/main.css">
+<link rel="stylesheet" href="./css/app.css">
+</head>
+<body class="app">
+
+<div id="stage">
+  <canvas id="viz"></canvas>
+</div>
+
+<div class="idle-hint" id="idleHint">
+  <div class="title">play something.</div>
+  <div class="sub">no audio detected · drop a file or pick <b>Tab</b> for direct music sync</div>
+</div>
+
+<div class="topbar" id="topbar">
+  <a href="./index.html" class="brand-mini"><span class="dot"></span> lofy</a>
+  <div class="bpm-badge bpm-live">
+    <div class="bpm-dot"></div>
+    <div>
+      <div class="bpm-val" id="bpmVal">--</div>
+      <div class="bpm-lbl">BPM · LIVE</div>
+    </div>
+  </div>
+</div>
+
+<!-- Track bar (when file source active) -->
+<div class="trackbar" id="trackbar">
+  <button class="play" id="btnPlay" aria-label="Play/Pause">▶</button>
+  <div class="name" id="trackName">—</div>
+  <span class="time" id="curTime">0:00</span>
+  <input type="range" class="scrub" id="scrub" min="0" max="1000" value="0">
+  <span class="time" id="durTime">0:00</span>
+</div>
+
+<!-- CONTROL BAR -->
+<div class="controls" id="controls">
+  <div class="group">
+    <span class="lbl">Source</span>
+    <div class="pill-group" id="srcGroup">
+      <button class="pill active" data-src="mic">Mic</button>
+      <button class="pill" data-src="file">File</button>
+      <button class="pill" data-src="tab">Tab</button>
+    </div>
+  </div>
+
+  <div class="group" style="justify-content:center">
+    <span class="lbl">Mode</span>
+    <div class="pill-group" id="modeGroup">
+      <button class="pill active" data-mode="spectrum">Spectrum</button>
+      <button class="pill" data-mode="flash">Flash</button>
+      <button class="pill" data-mode="particles">Particles</button>
+    </div>
+
+    <span class="lbl" style="margin-left:14px">Palette</span>
+    <div class="swatch-row" id="swatchRow"></div>
+
+    <span class="lbl" style="margin-left:14px">Sens</span>
+    <div class="slider-wrap">
+      <input type="range" class="slider" id="sens" min="1" max="10" value="5" title="Audio input gain">
+      <span class="slider-val" id="sensVal">5</span>
+    </div>
+
+    <span class="lbl" style="margin-left:14px">React</span>
+    <div class="slider-wrap">
+      <input type="range" class="slider" id="react" min="1" max="10" value="7" title="Color reactivity — how easily tones change the color">
+      <span class="slider-val" id="reactVal">7</span>
+    </div>
+  </div>
+
+  <div class="group">
+    <button class="icon-btn" id="btnPresets" title="Presets (P)" aria-label="Presets">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+    </button>
+    <button class="icon-btn" id="btnSettings" title="Settings" aria-label="Settings">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+    </button>
+    <button class="icon-btn" id="btnFs" title="Fullscreen (F)" aria-label="Fullscreen">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9V3h6M21 9V3h-6M3 15v6h6M21 15v6h-6"/></svg>
+    </button>
+  </div>
+</div>
+
+<!-- DROPZONE -->
+<div class="dropzone" id="dropzone">
+  <div class="dropzone-inner">
+    <h3>Drop a track</h3>
+    <p>MP3, WAV, OGG, FLAC, AAC — anything your browser can decode. Audio is processed entirely in your browser and never uploaded.</p>
+    <input type="file" id="fileInput" accept="audio/*">
+    <label for="fileInput">Choose file</label>
+    <div class="formats" style="margin-top:14px">drag · drop · or pick</div>
+  </div>
+</div>
+
+<!-- SETTINGS OVERLAY -->
+<div class="overlay" id="settingsOverlay">
+  <div class="sheet">
+    <div class="sheet-head">
+      <h2>Settings</h2>
+      <button class="close" data-close>Esc ✕</button>
+    </div>
+
+    <div class="set-row">
+      <div>
+        <div class="lbl-md">Input Sensitivity</div>
+        <div class="lbl-sm">Audio gain into the analyser. Low = smooth, high = explosive.</div>
+      </div>
+      <div class="slider-wrap">
+        <input type="range" class="slider" id="setSens" min="1" max="10" value="5">
+        <span class="slider-val" id="setSensVal">5</span>
+      </div>
+    </div>
+
+    <div class="set-row">
+      <div>
+        <div class="lbl-md">Color Reactivity</div>
+        <div class="lbl-sm">How easily small tones trigger color changes. High = vocals, hats, every detail flips the color.</div>
+      </div>
+      <div class="slider-wrap">
+        <input type="range" class="slider" id="setReact" min="1" max="10" value="7">
+        <span class="slider-val" id="setReactVal">7</span>
+      </div>
+    </div>
+
+    <div class="set-row">
+      <div>
+        <div class="lbl-md">Strobe Guard</div>
+        <div class="lbl-sm">Caps flash rate to 3Hz max. Safety feature for photosensitivity.</div>
+      </div>
+      <div class="toggle" id="tgStrobe" data-key="strobeGuard"></div>
+    </div>
+
+    <div class="set-row">
+      <div>
+        <div class="lbl-md">Show BPM Badge</div>
+        <div class="lbl-sm">Toggles the live BPM overlay on canvas.</div>
+      </div>
+      <div class="toggle on" id="tgBpm" data-key="showBpm"></div>
+    </div>
+
+    <div class="set-row">
+      <div>
+        <div class="lbl-md">Color Intensity</div>
+        <div class="lbl-sm">Controls max color brightness — useful for projector vs. TV.</div>
+      </div>
+      <div class="pill-group">
+        <button class="pill" data-int="low">Low</button>
+        <button class="pill active" data-int="med">Med</button>
+        <button class="pill" data-int="high">High</button>
+      </div>
+    </div>
+
+    <div class="set-row">
+      <div>
+        <div class="lbl-md">Auto-hide Controls</div>
+        <div class="lbl-sm">Hides the control bar after 3s of inactivity in fullscreen.</div>
+      </div>
+      <div class="toggle on" id="tgAuto" data-key="autoHide"></div>
+    </div>
+
+    <div class="set-row">
+      <div>
+        <div class="lbl-md">Keyboard Shortcuts</div>
+        <div class="lbl-sm">F · fullscreen · 1/2/3 · mode · M · source · ←/→ · sens · P · presets · Esc · close</div>
+      </div>
+      <div class="toggle on" id="tgKeys" data-key="shortcuts"></div>
+    </div>
+  </div>
+</div>
+
+<!-- PRESETS OVERLAY -->
+<div class="overlay" id="presetsOverlay">
+  <div class="sheet">
+    <div class="sheet-head">
+      <h2>Presets</h2>
+      <button class="close" data-close>Esc ✕</button>
+    </div>
+
+    <div class="section-h">Custom palette builder</div>
+    <div class="builder" id="builder">
+      <input type="color" data-i="0" value="#ff2d87">
+      <input type="color" data-i="1" value="#7a3cff">
+      <input type="color" data-i="2" value="#00f0ff">
+      <input type="color" data-i="3" value="#d8ff3a">
+      <div class="builder-actions">
+        <button class="btn ghost" id="btnApplyBuilder">Apply</button>
+        <button class="btn" id="btnSaveBuilder">Save preset</button>
+      </div>
+    </div>
+
+    <div class="section-h">Built-in</div>
+    <div class="preset-grid" id="builtinGrid"></div>
+
+    <div class="section-h">My presets</div>
+    <div class="preset-grid" id="userGrid"></div>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div class="toast" id="toast"></div>
+
+<!-- FIRST-LAUNCH WARNING -->
+<div class="first-launch" id="firstLaunch" style="display:none">
+  <div class="card">
+    <h3>Heads up — flashing lights</h3>
+    <p>lofy creates beat-reactive visuals that can include rapid color flashes. If you're photosensitive, leave Strobe Guard ON (default). You can change this anytime in Settings.</p>
+    <button class="ack" id="ackBtn">Got it · Launch</button>
+  </div>
+</div>
+
+<script type="module" src="./js/app.js"></script>
+<script>
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js').catch(()=>{}));
+  }
+</script>
+</body>
+</html>
