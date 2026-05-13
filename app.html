@@ -79,13 +79,16 @@
   </div>
 </header>
 
+<!-- Bottom panel — stacks trackbar above controls so they never overlap -->
+<div class="bottom-panel" id="bottomPanel">
+
 <!-- Track bar (when file source active) -->
 <div class="trackbar" id="trackbar">
-  <button class="play" id="btnPlay" aria-label="Play/Pause">▶</button>
+  <button class="play" id="btnPlay" aria-label="Play/Pause" type="button">▶</button>
   <div class="name" id="trackName">—</div>
-  <span class="time" id="curTime">0:00</span>
-  <input type="range" class="scrub" id="scrub" min="0" max="1000" value="0">
-  <span class="time" id="durTime">0:00</span>
+  <span class="time" id="curTime" aria-label="Current time">0:00</span>
+  <input type="range" class="scrub" id="scrub" min="0" max="1000" value="0" aria-label="Scrub through track">
+  <span class="time" id="durTime" aria-label="Duration">0:00</span>
 </div>
 
 <!-- CONTROL BAR -->
@@ -143,6 +146,8 @@
     </button>
   </div>
 </div>
+
+</div><!-- /.bottom-panel -->
 
 <div class="countdown" id="countdown" aria-hidden="true"><div class="n" id="countdownN">3</div></div>
 
