@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>lofy — Offline</title>
+<meta name="theme-color" content="#0a0a0d">
+<meta name="color-scheme" content="dark">
+<link rel="icon" type="image/svg+xml" href="./assets/favicon.svg">
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  html,body{height:100%;background:#0a0a0d;color:#f4f0e6;font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+  body{
+    display:flex;align-items:center;justify-content:center;padding:24px;text-align:center;
+    background-image:
+      radial-gradient(ellipse 80% 50% at 50% -10%, rgba(255,45,135,.18), transparent 60%),
+      radial-gradient(ellipse 60% 40% at 90% 30%, rgba(0,240,255,.10), transparent 60%);
+  }
+  .card{max-width:440px}
+  .mark{font-size:14px;letter-spacing:.22em;text-transform:uppercase;color:rgba(244,240,230,.5);margin-bottom:18px}
+  .mark::before{content:"";display:inline-block;width:8px;height:8px;background:#ff2d87;margin-right:10px;vertical-align:1px}
+  h1{font-size:42px;letter-spacing:-.02em;line-height:1;margin-bottom:14px}
+  p{font-size:14px;line-height:1.6;color:rgba(244,240,230,.7);margin-bottom:22px;max-width:34ch;margin-left:auto;margin-right:auto}
+  a{display:inline-block;padding:12px 22px;background:#d8ff3a;color:#0a0a0d;text-decoration:none;font-weight:700;font-size:12px;letter-spacing:.14em;text-transform:uppercase}
+  .hint{margin-top:18px;font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:rgba(244,240,230,.4)}
+</style>
+</head>
+<body>
+  <div class="card" role="status" aria-live="polite">
+    <div class="mark">lofy · offline</div>
+    <h1>No connection.</h1>
+    <p>lofy is a browser app — it runs locally, but the page can't load without a connection on first visit. Once it's installed as a PWA it works offline.</p>
+    <a href="./">Try again</a>
+    <div class="hint">Tip: install lofy from the browser menu for offline use.</div>
+  </div>
+</body>
+</html>

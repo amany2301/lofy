@@ -2,14 +2,49 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<title>lofy — Visualizer</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
+<title>lofy DJ Visualizer — Real-time Beat-Reactive Visuals</title>
+<meta name="description" content="Real-time beat-reactive music visualizer. Mic, file, or tab input. Spectrum, Flash, and Particle modes. Tap tempo, record, share. No install, no login.">
+<meta name="author" content="lofy">
 <meta name="theme-color" content="#000000">
+<meta name="color-scheme" content="dark">
+<meta name="referrer" content="strict-origin-when-cross-origin">
+
+<link rel="canonical" href="https://lofy.app/app.html">
+
+<!-- Open Graph -->
+<meta property="og:title" content="lofy DJ Visualizer — Real-time Beat-Reactive Visuals">
+<meta property="og:description" content="Launch the lofy visualizer. Mic, file, or tab input. Spectrum, Flash, Particles. Free, in your browser.">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://lofy.app/app.html">
+<meta property="og:image" content="https://lofy.app/assets/og-image.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:site_name" content="lofy">
+
+<!-- Twitter -->
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="lofy DJ Visualizer">
+<meta name="twitter:description" content="Beat-reactive visuals in your browser. Real-time. Free.">
+<meta name="twitter:image" content="https://lofy.app/assets/og-image.png">
+
+<!-- iOS PWA -->
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="lofy">
+<meta name="format-detection" content="telephone=no">
+
+<!-- Windows / Edge -->
+<meta name="msapplication-TileColor" content="#0a0a0d">
+<meta name="msapplication-config" content="./browserconfig.xml">
 
 <link rel="manifest" href="./manifest.json">
 <link rel="icon" type="image/svg+xml" href="./assets/favicon.svg">
+<link rel="alternate icon" href="./assets/icon-192.png" type="image/png">
 <link rel="apple-touch-icon" href="./assets/icon-192.png">
 
+<link rel="dns-prefetch" href="//fonts.googleapis.com">
+<link rel="dns-prefetch" href="//fonts.gstatic.com">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Bagel+Fat+One&family=JetBrains+Mono:wght@300;400;500;700&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
@@ -19,25 +54,30 @@
 </head>
 <body class="app">
 
-<div id="stage">
-  <canvas id="viz"></canvas>
-</div>
+<main id="stage" aria-label="lofy visualizer stage">
+  <canvas id="viz" role="img" aria-label="Real-time music visualizer canvas"></canvas>
+</main>
 
-<div class="idle-hint" id="idleHint">
+<div class="idle-hint" id="idleHint" role="status" aria-live="polite">
   <div class="title">play something.</div>
   <div class="sub">no audio detected · drop a file or pick <b>Tab</b> for direct music sync</div>
+  <button class="demo-cta" id="tryDemoBtn" type="button">Try the demo loop</button>
 </div>
 
-<div class="topbar" id="topbar">
-  <a href="./index.html" class="brand-mini"><span class="dot"></span> lofy</a>
-  <div class="bpm-badge bpm-live">
-    <div class="bpm-dot"></div>
+<div class="fps-chip" id="fpsChip" aria-hidden="true"><b id="fpsVal">--</b> FPS</div>
+
+<header class="topbar" id="topbar">
+  <a href="./index.html" class="brand-mini" aria-label="lofy home"><span class="dot" aria-hidden="true"></span> lofy</a>
+  <div class="bpm-badge bpm-live" id="bpmBadge" role="button" tabindex="0"
+       title="Click to tap tempo. Double-click to clear manual BPM."
+       aria-label="BPM badge — click to tap tempo">
+    <div class="bpm-dot" aria-hidden="true"></div>
     <div>
       <div class="bpm-val" id="bpmVal">--</div>
-      <div class="bpm-lbl">BPM · LIVE</div>
+      <div class="bpm-lbl" id="bpmLbl">BPM · LIVE</div>
     </div>
   </div>
-</div>
+</header>
 
 <!-- Track bar (when file source active) -->
 <div class="trackbar" id="trackbar">
@@ -51,50 +91,60 @@
 <!-- CONTROL BAR -->
 <div class="controls" id="controls">
   <div class="group">
-    <span class="lbl">Source</span>
-    <div class="pill-group" id="srcGroup">
-      <button class="pill active" data-src="mic">Mic</button>
-      <button class="pill" data-src="file">File</button>
-      <button class="pill" data-src="tab">Tab</button>
+    <span class="lbl" id="lblSource">Source</span>
+    <div class="pill-group" id="srcGroup" role="group" aria-labelledby="lblSource">
+      <button class="pill active" data-src="mic"  type="button" aria-pressed="true">Mic</button>
+      <button class="pill"        data-src="file" type="button" aria-pressed="false">File</button>
+      <button class="pill"        data-src="tab"  type="button" aria-pressed="false">Tab</button>
     </div>
   </div>
 
   <div class="group" style="justify-content:center">
-    <span class="lbl">Mode</span>
-    <div class="pill-group" id="modeGroup">
-      <button class="pill active" data-mode="spectrum">Spectrum</button>
-      <button class="pill" data-mode="flash">Flash</button>
-      <button class="pill" data-mode="particles">Particles</button>
+    <span class="lbl" id="lblMode">Mode</span>
+    <div class="pill-group" id="modeGroup" role="group" aria-labelledby="lblMode">
+      <button class="pill active" data-mode="spectrum"  type="button" aria-pressed="true">Spectrum</button>
+      <button class="pill"        data-mode="flash"     type="button" aria-pressed="false">Flash</button>
+      <button class="pill"        data-mode="particles" type="button" aria-pressed="false">Particles</button>
     </div>
 
-    <span class="lbl" style="margin-left:14px">Palette</span>
-    <div class="swatch-row" id="swatchRow"></div>
+    <span class="lbl" style="margin-left:14px" id="lblPalette">Palette</span>
+    <div class="swatch-row" id="swatchRow" role="group" aria-labelledby="lblPalette"></div>
 
-    <span class="lbl" style="margin-left:14px">Sens</span>
+    <label class="lbl" style="margin-left:14px" for="sens">Sens</label>
     <div class="slider-wrap">
-      <input type="range" class="slider" id="sens" min="1" max="10" value="5" title="Audio input gain">
-      <span class="slider-val" id="sensVal">5</span>
+      <input type="range" class="slider" id="sens" min="1" max="10" value="5"
+             aria-label="Audio input sensitivity" title="Audio input gain">
+      <span class="slider-val" id="sensVal" aria-hidden="true">5</span>
     </div>
 
-    <span class="lbl" style="margin-left:14px">React</span>
+    <label class="lbl" style="margin-left:14px" for="react">React</label>
     <div class="slider-wrap">
-      <input type="range" class="slider" id="react" min="1" max="10" value="7" title="Color reactivity — how easily tones change the color">
-      <span class="slider-val" id="reactVal">7</span>
+      <input type="range" class="slider" id="react" min="1" max="10" value="7"
+             aria-label="Color reactivity" title="Color reactivity — how easily tones change the color">
+      <span class="slider-val" id="reactVal" aria-hidden="true">7</span>
     </div>
   </div>
 
   <div class="group">
-    <button class="icon-btn" id="btnPresets" title="Presets (P)" aria-label="Presets">
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+    <button class="icon-btn" id="btnRec" title="Record 30s clip (R)" aria-label="Record 30 second clip" type="button">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="12" cy="12" r="6"/></svg>
     </button>
-    <button class="icon-btn" id="btnSettings" title="Settings" aria-label="Settings">
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+    <button class="icon-btn" id="btnHelp" title="Keyboard shortcuts (?)" aria-label="Keyboard shortcuts" type="button">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
     </button>
-    <button class="icon-btn" id="btnFs" title="Fullscreen (F)" aria-label="Fullscreen">
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9V3h6M21 9V3h-6M3 15v6h6M21 15v6h-6"/></svg>
+    <button class="icon-btn" id="btnPresets" title="Presets (P)" aria-label="Presets" type="button">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+    </button>
+    <button class="icon-btn" id="btnSettings" title="Settings" aria-label="Settings" type="button">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+    </button>
+    <button class="icon-btn" id="btnFs" title="Fullscreen (F)" aria-label="Fullscreen" type="button">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M3 9V3h6M21 9V3h-6M3 15v6h6M21 15v6h-6"/></svg>
     </button>
   </div>
 </div>
+
+<div class="countdown" id="countdown" aria-hidden="true"><div class="n" id="countdownN">3</div></div>
 
 <!-- DROPZONE -->
 <div class="dropzone" id="dropzone">
@@ -142,7 +192,7 @@
         <div class="lbl-md">Strobe Guard</div>
         <div class="lbl-sm">Caps flash rate to 3Hz max. Safety feature for photosensitivity.</div>
       </div>
-      <div class="toggle" id="tgStrobe" data-key="strobeGuard"></div>
+      <button class="toggle" id="tgStrobe" data-key="strobeGuard" role="switch" aria-checked="false" aria-label="Strobe Guard" type="button"></button>
     </div>
 
     <div class="set-row">
@@ -150,7 +200,7 @@
         <div class="lbl-md">Show BPM Badge</div>
         <div class="lbl-sm">Toggles the live BPM overlay on canvas.</div>
       </div>
-      <div class="toggle on" id="tgBpm" data-key="showBpm"></div>
+      <button class="toggle on" id="tgBpm" data-key="showBpm" role="switch" aria-checked="true" aria-label="Show BPM badge" type="button"></button>
     </div>
 
     <div class="set-row">
@@ -170,15 +220,88 @@
         <div class="lbl-md">Auto-hide Controls</div>
         <div class="lbl-sm">Hides the control bar after 3s of inactivity in fullscreen.</div>
       </div>
-      <div class="toggle on" id="tgAuto" data-key="autoHide"></div>
+      <button class="toggle on" id="tgAuto" data-key="autoHide" role="switch" aria-checked="true" aria-label="Auto-hide controls" type="button"></button>
     </div>
 
     <div class="set-row">
       <div>
         <div class="lbl-md">Keyboard Shortcuts</div>
-        <div class="lbl-sm">F · fullscreen · 1/2/3 · mode · M · source · ←/→ · sens · P · presets · Esc · close</div>
+        <div class="lbl-sm">F · fullscreen · 1/2/3 · mode · M · source · ←/→ · sens · P · presets · ? · help · Esc · close</div>
       </div>
-      <div class="toggle on" id="tgKeys" data-key="shortcuts"></div>
+      <button class="toggle on" id="tgKeys" data-key="shortcuts" role="switch" aria-checked="true" aria-label="Keyboard shortcuts enabled" type="button"></button>
+    </div>
+
+    <div class="set-row">
+      <div>
+        <div class="lbl-md">Auto Rotate Hue</div>
+        <div class="lbl-sm">Slowly cycles palette hues over time — set-and-forget for parties.</div>
+      </div>
+      <button class="toggle" id="tgHue" data-key="hueRotate" role="switch" aria-checked="false" aria-label="Auto rotate hue" type="button"></button>
+    </div>
+
+    <div class="set-row">
+      <div>
+        <div class="lbl-md">Hue Cycle Length</div>
+        <div class="lbl-sm">How long one full color rotation takes (15s = wild, 120s = subtle drift).</div>
+      </div>
+      <div class="slider-wrap">
+        <input type="range" class="slider" id="setHueCycle" min="15" max="120" step="5" value="45"
+               aria-label="Hue rotation cycle length in seconds">
+        <span class="slider-val" id="setHueCycleVal" aria-hidden="true">45s</span>
+      </div>
+    </div>
+
+    <div class="set-row">
+      <div>
+        <div class="lbl-md">Show FPS</div>
+        <div class="lbl-sm">Tiny framerate chip top-right. Useful while tuning particle ceilings.</div>
+      </div>
+      <button class="toggle" id="tgFps" data-key="showFps" role="switch" aria-checked="false" aria-label="Show FPS overlay" type="button"></button>
+    </div>
+  </div>
+</div>
+
+<!-- KEYBOARD HELP OVERLAY -->
+<div class="overlay" id="helpOverlay">
+  <div class="sheet" role="dialog" aria-labelledby="helpTitle" aria-modal="true">
+    <div class="sheet-head">
+      <h2 id="helpTitle">Keyboard shortcuts</h2>
+      <button class="close" data-close type="button">Esc ✕</button>
+    </div>
+    <div class="kbd-grid">
+      <div class="kbd-group">
+        <h4>Modes</h4>
+        <dl>
+          <dt><kbd>1</kbd></dt><dd>Spectrum</dd>
+          <dt><kbd>2</kbd></dt><dd>Beat Flash</dd>
+          <dt><kbd>3</kbd></dt><dd>Particle Storm</dd>
+        </dl>
+      </div>
+      <div class="kbd-group">
+        <h4>Source</h4>
+        <dl>
+          <dt><kbd>M</kbd></dt><dd>Cycle Mic / File / Tab</dd>
+          <dt><kbd>Space</kbd></dt><dd>Play / pause (file mode)</dd>
+        </dl>
+      </div>
+      <div class="kbd-group">
+        <h4>Levels</h4>
+        <dl>
+          <dt><kbd>←</kbd> <kbd>→</kbd></dt><dd>Sensitivity −/+</dd>
+          <dt><kbd>T</kbd></dt><dd>Tap tempo (also click BPM)</dd>
+        </dl>
+      </div>
+      <div class="kbd-group">
+        <h4>View</h4>
+        <dl>
+          <dt><kbd>F</kbd></dt><dd>Fullscreen toggle</dd>
+          <dt><kbd>P</kbd></dt><dd>Open Presets</dd>
+          <dt><kbd>?</kbd></dt><dd>This help</dd>
+          <dt><kbd>R</kbd></dt><dd>Record 30s clip</dd>
+          <dt><kbd>S</kbd></dt><dd>Share preset URL</dd>
+          <dt><kbd>Esc</kbd></dt><dd>Close overlays</dd>
+        </dl>
+      </div>
     </div>
   </div>
 </div>
@@ -198,8 +321,9 @@
       <input type="color" data-i="2" value="#00f0ff">
       <input type="color" data-i="3" value="#d8ff3a">
       <div class="builder-actions">
-        <button class="btn ghost" id="btnApplyBuilder">Apply</button>
-        <button class="btn" id="btnSaveBuilder">Save preset</button>
+        <button class="btn ghost" id="btnApplyBuilder" type="button">Apply</button>
+        <button class="btn ghost" id="btnSharePreset" type="button" title="Copy a URL that recreates the current mode + palette + sliders">Share</button>
+        <button class="btn"       id="btnSaveBuilder" type="button">Save preset</button>
       </div>
     </div>
 
@@ -215,11 +339,13 @@
 <div class="toast" id="toast"></div>
 
 <!-- FIRST-LAUNCH WARNING -->
-<div class="first-launch" id="firstLaunch" style="display:none">
+<div class="first-launch" id="firstLaunch" style="display:none"
+     role="alertdialog" aria-labelledby="flTitle" aria-describedby="flDesc">
   <div class="card">
-    <h3>Heads up — flashing lights</h3>
-    <p>lofy creates beat-reactive visuals that can include rapid color flashes. If you're photosensitive, leave Strobe Guard ON (default). You can change this anytime in Settings.</p>
-    <button class="ack" id="ackBtn">Got it · Launch</button>
+    <h3 id="flTitle">Heads up — flashing lights</h3>
+    <p id="flDesc">lofy creates beat-reactive visuals that can include rapid color flashes. If you're photosensitive, leave Strobe Guard ON (default). You can change this anytime in Settings.</p>
+    <button class="ack" id="ackBtn" type="button">Got it · Use mic</button>
+    <button class="ack" id="tryDemoModalBtn" type="button" style="background:transparent;color:var(--paper);border:1px solid var(--paper);margin-left:8px">Try demo instead</button>
   </div>
 </div>
 

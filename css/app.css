@@ -29,12 +29,14 @@ html,body.app{height:100%;background:#000;color:var(--paper);overflow:hidden}
 
 /* CONTROL BAR */
 .controls{
-  position:fixed;left:16px;right:16px;bottom:16px;z-index:20;
+  position:fixed;left:16px;right:16px;
+  bottom:max(16px, env(safe-area-inset-bottom, 16px));
+  z-index:20;
   background:rgba(10,10,13,.78);
   backdrop-filter:blur(14px);
   border:1px solid var(--hairline);
   display:grid;
-  grid-template-columns: auto 1fr auto;
+  grid-template-columns: auto minmax(0, 1fr) auto;
   gap:18px;align-items:center;
   padding:12px 16px;
   transition:opacity .3s ease, transform .3s ease;
@@ -95,17 +97,27 @@ html,body.app{height:100%;background:#000;color:var(--paper);overflow:hidden}
   .controls{
     grid-template-columns: 1fr;
     gap:10px;padding:10px;
-    bottom:12px;left:12px;right:12px;
+    bottom:max(12px, env(safe-area-inset-bottom, 12px));
+    left:12px;right:12px;
     max-height:calc(100vh - 100px);overflow-y:auto;
   }
   .controls .group{justify-content:flex-start}
-  .topbar{padding:10px 14px}
+  .topbar{
+    padding:10px 14px;
+    padding-top:max(10px, env(safe-area-inset-top, 10px));
+  }
   .brand-mini{font-size:15px}
-  .slider{width:120px}
+  .slider{width:140px}
+  .swatch{width:26px;height:26px}
+  .swatch-add{width:26px;height:26px;font-size:14px}
+}
+@media (max-width:480px){
+  .swatch{width:24px;height:24px}
+  .swatch-add{width:24px;height:24px}
 }
 
 /* AUTO-HIDE in fullscreen */
-.idle .topbar, .idle .controls{opacity:0;pointer-events:none}
+.idle .topbar, .idle .controls, .idle .trackbar{opacity:0;pointer-events:none}
 
 /* FILE DROP OVERLAY */
 .dropzone{
@@ -244,5 +256,65 @@ html,body.app{height:100%;background:#000;color:var(--paper);overflow:hidden}
   display:none;
 }
 .idle-hint.show{display:block;animation:fadein .4s ease}
-.idle-hint .title{font-family:'Bagel Fat One',serif;font-size:clamp(40px,8vw,90px);letter-spacing:-.04em;color:var(--paper);opacity:.18;line-height:.9}
+.idle-hint .title{
+  font-family:'Bagel Fat One',serif;font-size:clamp(40px,8vw,90px);
+  letter-spacing:-.04em;color:var(--paper);opacity:.32;line-height:.9;
+  animation:idleBreathe 2.6s ease-in-out infinite;
+}
 .idle-hint .sub{font-size:11px;letter-spacing:.2em;text-transform:uppercase;color:var(--paper-faint);margin-top:14px}
+.idle-hint .sub b{color:var(--paper);font-weight:500}
+.idle-hint .demo-cta{
+  display:inline-block;margin-top:22px;
+  padding:12px 22px;background:var(--acid);color:var(--ink);
+  font-family:'JetBrains Mono',monospace;font-weight:700;font-size:11px;
+  letter-spacing:.18em;text-transform:uppercase;cursor:pointer;
+  pointer-events:auto;
+  box-shadow:6px 6px 0 var(--magenta);
+  transition:transform .15s ease, box-shadow .15s ease;
+}
+.idle-hint .demo-cta:hover{transform:translate(-2px,-2px);box-shadow:10px 10px 0 var(--magenta)}
+.idle-hint .demo-cta:active{transform:translate(2px,2px);box-shadow:2px 2px 0 var(--magenta)}
+@keyframes idleBreathe{0%,100%{opacity:.28}50%{opacity:.42}}
+
+/* FPS overlay chip */
+.fps-chip{
+  position:fixed;top:14px;right:160px;z-index:21;
+  background:rgba(0,0,0,.6);backdrop-filter:blur(8px);
+  border:1px solid var(--hairline);
+  padding:6px 10px;font-size:10px;letter-spacing:.16em;text-transform:uppercase;
+  color:var(--paper-dim);display:none;
+}
+.fps-chip.show{display:block}
+.fps-chip b{color:var(--acid);font-weight:400}
+
+/* BPM badge tap-mode visual */
+.bpm-badge{cursor:pointer;user-select:none}
+.bpm-badge.tapping{box-shadow:0 0 0 2px var(--acid)}
+.bpm-badge.manual .bpm-lbl{color:var(--acid)}
+.bpm-badge .bpm-lbl em{font-style:normal;color:var(--magenta)}
+
+/* Record button states */
+.icon-btn.rec-active{background:var(--magenta);color:var(--paper);border-color:var(--magenta);animation:recPulse 1s ease-in-out infinite}
+@keyframes recPulse{0%,100%{box-shadow:0 0 0 0 rgba(255,45,135,.55)}50%{box-shadow:0 0 0 8px rgba(255,45,135,0)}}
+
+.countdown{
+  position:fixed;inset:0;z-index:60;
+  display:none;align-items:center;justify-content:center;
+  background:rgba(10,10,13,.55);backdrop-filter:blur(4px);
+  pointer-events:none;
+}
+.countdown.show{display:flex}
+.countdown .n{
+  font-family:'Bagel Fat One',serif;font-size:240px;line-height:1;
+  color:var(--paper);text-shadow:0 0 60px rgba(255,45,135,.7);
+}
+
+/* Keyboard help sheet */
+.kbd-grid{display:grid;grid-template-columns:repeat(auto-fit, minmax(220px, 1fr));gap:18px;margin-top:14px}
+.kbd-group h4{font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--paper-faint);margin-bottom:8px;border-bottom:1px solid var(--hairline-soft);padding-bottom:6px}
+.kbd-group dl{display:grid;grid-template-columns:auto 1fr;gap:6px 14px;align-items:center}
+.kbd-group kbd{
+  display:inline-block;padding:3px 8px;background:var(--ink-3);border:1px solid var(--hairline);
+  font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--paper);min-width:24px;text-align:center;
+}
+.kbd-group dd{font-size:12px;color:var(--paper-dim);margin:0}

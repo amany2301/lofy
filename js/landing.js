@@ -194,3 +194,47 @@ function miniParticles(id){
   requestAnimationFrame(frame);
 }
 miniSpectrum('vis1'); miniFlash('vis2'); miniParticles('vis3');
+
+/* ============================================================
+   SCROLL — smooth section reveals + subtle hero parallax.
+   Respects prefers-reduced-motion via CSS.
+   ============================================================ */
+(function(){
+  const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if (reduced) {
+    document.querySelectorAll('.scroll-in').forEach(el => el.classList.add('in'));
+    return;
+  }
+
+  // IntersectionObserver — fade + rise each .scroll-in once it enters viewport
+  const io = new IntersectionObserver((entries) => {
+    entries.forEach(en => {
+      if (en.isIntersecting){
+        en.target.classList.add('in');
+        io.unobserve(en.target);
+      }
+    });
+  }, { threshold: 0.12, rootMargin: '0px 0px -8% 0px' });
+  document.querySelectorAll('.scroll-in').forEach(el => io.observe(el));
+
+  // Subtle hero parallax — canvas frame drifts up a touch, eyebrow & sub follow.
+  // rAF-throttled to keep scroll buttery.
+  const heroFrame = document.querySelector('.hero-right');
+  const heroLeft  = document.querySelector('.hero-left');
+  let scrollY = 0;
+  let ticking = false;
+  const onScroll = () => {
+    scrollY = window.scrollY || window.pageYOffset;
+    if (!ticking){
+      ticking = true;
+      requestAnimationFrame(() => {
+        const y = Math.min(scrollY, 600);
+        // negative translate = drifts UP as you scroll DOWN
+        if (heroFrame) heroFrame.style.transform = `translate3d(0, ${ -y * 0.08 }px, 0)`;
+        if (heroLeft)  heroLeft.style.transform  = `translate3d(0, ${ -y * 0.04 }px, 0)`;
+        ticking = false;
+      });
+    }
+  };
+  window.addEventListener('scroll', onScroll, { passive: true });
+})();

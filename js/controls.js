@@ -3,6 +3,7 @@ import { BUILTIN_PALETTES } from './palettes.js';
 import {
   loadSettings, saveSettings, loadPresets, savePreset, deletePreset,
 } from './presets.js';
+import { buildShareUrl, copyToClipboard } from './share.js';
 
 export class Controls {
   constructor({ audio, viz, onSourceChange, onError, onToast }){
@@ -20,9 +21,17 @@ export class Controls {
     this._idleT = 0;
     this._idleHandler = this._onActivity.bind(this);
     this._onKey = this._onKey.bind(this);
+    this._initialized = false;
+    this._fileTickerId = 0;
+    this._lastFocusedBeforeOverlay = null;
+    this._userPalettes = {};      // pid -> preset (for event-delegated lookup)
+    this._tapTimes = [];          // tap-tempo state
+    this._tapTimer = 0;
   }
 
   init(){
+    if (this._initialized) return;
+    this._initialized = true;
     this._wireSourcePills();
     this._wireModePills();
     this._wireSensitivity();
@@ -52,10 +61,19 @@ export class Controls {
     document.getElementById('setReactVal').textContent = r;
     this.viz.setReactivity(r);
 
+    const hc = this.settings.hueCycleSec ?? 45;
+    const hcEl = document.getElementById('setHueCycle');
+    if (hcEl){
+      hcEl.value = hc;
+      document.getElementById('setHueCycleVal').textContent = hc + 's';
+    }
+
     this._setToggle('tgStrobe', this.settings.strobeGuard);
     this._setToggle('tgBpm', this.settings.showBpm);
     this._setToggle('tgAuto', this.settings.autoHide);
     this._setToggle('tgKeys', this.settings.shortcuts);
+    this._setToggle('tgHue', this.settings.hueRotate);
+    this._setToggle('tgFps', this.settings.showFps);
     this._setIntensityPill(this.settings.colorIntensity);
 
     this.viz.setStrobeGuard(this.settings.strobeGuard);
@@ -68,6 +86,7 @@ export class Controls {
     const el = document.getElementById(id);
     if (!el) return;
     el.classList.toggle('on', !!on);
+    if (el.hasAttribute('role')) el.setAttribute('aria-checked', on ? 'true' : 'false');
   }
   _setIntensityPill(level){
     document.querySelectorAll('[data-int]').forEach(b => {
@@ -104,7 +123,9 @@ export class Controls {
 
   _setActivePill(groupId, dataKey, value){
     document.getElementById(groupId).querySelectorAll('.pill').forEach(b => {
-      b.classList.toggle('active', b.dataset[dataKey] === value);
+      const on = b.dataset[dataKey] === value;
+      b.classList.toggle('active', on);
+      b.setAttribute('aria-pressed', on ? 'true' : 'false');
     });
   }
 
@@ -158,33 +179,57 @@ export class Controls {
     };
     document.getElementById('react').addEventListener('input', e => applyReact(+e.target.value));
     document.getElementById('setReact').addEventListener('input', e => applyReact(+e.target.value));
+
+    // Hue cycle length
+    const setHueCycle = document.getElementById('setHueCycle');
+    if (setHueCycle){
+      setHueCycle.addEventListener('input', () => {
+        const v = +setHueCycle.value;
+        document.getElementById('setHueCycleVal').textContent = v + 's';
+        this.settings.hueCycleSec = v;
+        saveSettings(this.settings);
+        this.viz.setHueCycleSec(v);
+      });
+    }
   }
 
   _renderSwatches(){
     const row = document.getElementById('swatchRow');
     row.innerHTML = '';
-    BUILTIN_PALETTES.forEach(p => {
-      const el = this._swatchEl(p);
-      el.addEventListener('click', () => {
-        this.setPalette(p);
-      });
-      row.appendChild(el);
-    });
-    // user palettes
+    this._userPalettes = {};
+    BUILTIN_PALETTES.forEach(p => row.appendChild(this._swatchEl(p)));
     const userPresets = loadPresets();
     userPresets.forEach(p => {
-      const el = this._swatchEl(p);
-      el.title = p.name + ' (saved)';
-      el.addEventListener('click', () => this.setPalette(p));
+      const preset = { id:p.id, name:p.name, mode:p.mode, colors:p.colors || p.palette };
+      this._userPalettes[p.id] = preset;
+      const el = this._swatchEl(preset);
+      el.title = preset.name + ' (saved)';
       row.appendChild(el);
     });
     const add = document.createElement('button');
     add.className = 'swatch-add';
     add.title = 'Custom palette';
+    add.setAttribute('aria-label', 'Open palette builder');
+    add.dataset.swAdd = '1';
     add.innerHTML = '+';
-    add.addEventListener('click', () => this._openOverlay('presetsOverlay'));
     row.appendChild(add);
     this._highlightActiveSwatch();
+
+    if (!row.dataset.delegated){
+      row.dataset.delegated = '1';
+      row.addEventListener('click', (e) => {
+        const swatch = e.target.closest('.swatch');
+        if (swatch){
+          const pid = swatch.dataset.pid;
+          const builtin = BUILTIN_PALETTES.find(p => p.id === pid);
+          const user = this._userPalettes[pid];
+          const palette = builtin || user;
+          if (palette) this.setPalette(palette);
+          return;
+        }
+        if (e.target.closest('[data-sw-add]')) this._openOverlay('presetsOverlay');
+      });
+    }
   }
 
   _swatchEl(p){
@@ -192,6 +237,7 @@ export class Controls {
     el.className = 'swatch';
     el.dataset.pid = p.id;
     el.title = p.name;
+    el.setAttribute('aria-label', `Palette: ${p.name}`);
     const cols = p.colors.slice(0, 4);
     while (cols.length < 4) cols.push(cols[cols.length-1] || '#000');
     el.innerHTML = `
@@ -215,9 +261,86 @@ export class Controls {
   }
 
   _wireIconButtons(){
-    document.getElementById('btnFs').addEventListener('click', () => this.toggleFullscreen());
-    document.getElementById('btnSettings').addEventListener('click', () => this._openOverlay('settingsOverlay'));
-    document.getElementById('btnPresets').addEventListener('click', () => this._openOverlay('presetsOverlay'));
+    document.getElementById('btnFs')?.addEventListener('click', () => this.toggleFullscreen());
+    document.getElementById('btnSettings')?.addEventListener('click', () => this._openOverlay('settingsOverlay'));
+    document.getElementById('btnPresets')?.addEventListener('click', () => this._openOverlay('presetsOverlay'));
+    document.getElementById('btnHelp')?.addEventListener('click', () => this._openOverlay('helpOverlay'));
+    document.getElementById('btnRec')?.addEventListener('click', () => this._toggleRecording && this._toggleRecording());
+
+    // Tap-tempo via BPM badge (click) + double-click to clear
+    const bpmBadge = document.getElementById('bpmBadge');
+    if (bpmBadge){
+      bpmBadge.addEventListener('click', () => this._tapTempo(performance.now()));
+      bpmBadge.addEventListener('dblclick', () => this._clearManualBpm());
+      bpmBadge.addEventListener('keydown', (e) => {
+        if (e.key === ' ' || e.key === 'Enter'){ e.preventDefault(); this._tapTempo(performance.now()); }
+      });
+    }
+
+    // Share preset URL
+    document.getElementById('btnSharePreset')?.addEventListener('click', () => this._shareCurrent());
+  }
+
+  _tapTempo(nowMs){
+    this._tapTimes.push(nowMs);
+    // drop taps older than 3 seconds
+    while (this._tapTimes.length && nowMs - this._tapTimes[0] > 3000) this._tapTimes.shift();
+    const badge = document.getElementById('bpmBadge');
+    const lbl = document.getElementById('bpmLbl');
+    if (badge) badge.classList.add('tapping');
+    if (lbl) lbl.innerHTML = `<em>TAP</em> · ${this._tapTimes.length}/4`;
+    clearTimeout(this._tapTimer);
+    this._tapTimer = setTimeout(() => this._finalizeTap(), 1500);
+    if (this._tapTimes.length >= 4) this._finalizeTap();
+  }
+
+  _finalizeTap(){
+    const badge = document.getElementById('bpmBadge');
+    const lbl = document.getElementById('bpmLbl');
+    if (this._tapTimes.length < 2){
+      if (badge) badge.classList.remove('tapping');
+      if (lbl) lbl.textContent = 'BPM · LIVE';
+      this._tapTimes.length = 0;
+      return;
+    }
+    const intervals = [];
+    for (let i = 1; i < this._tapTimes.length; i++) intervals.push(this._tapTimes[i] - this._tapTimes[i-1]);
+    intervals.sort((a,b) => a - b);
+    const med = intervals[Math.floor(intervals.length/2)];
+    const bpm = Math.round(60000 / med);
+    if (bpm >= 40 && bpm <= 220){
+      this.viz.setManualBpm(bpm);
+      document.getElementById('bpmVal').textContent = bpm;
+      if (badge){ badge.classList.remove('tapping'); badge.classList.add('manual'); }
+      if (lbl) lbl.innerHTML = `<em>MANUAL</em> · ${bpm}`;
+      this.onToast && this.onToast(`Tempo locked at ${bpm} BPM`, 'ok');
+    } else {
+      if (badge) badge.classList.remove('tapping');
+      if (lbl) lbl.textContent = 'BPM · LIVE';
+      this.onToast && this.onToast('Out of range — try tapping evenly', 'warn');
+    }
+    this._tapTimes.length = 0;
+  }
+
+  _clearManualBpm(){
+    this.viz.setManualBpm(0);
+    const badge = document.getElementById('bpmBadge');
+    const lbl = document.getElementById('bpmLbl');
+    badge?.classList.remove('manual','tapping');
+    if (lbl) lbl.textContent = 'BPM · LIVE';
+    this.onToast && this.onToast('Auto BPM restored', 'ok');
+  }
+
+  _shareCurrent(){
+    const url = buildShareUrl({
+      mode: this.activeMode,
+      palette: this.viz.palette,
+      sens: this.settings.sensitivity,
+      react: this.settings.reactivity,
+    });
+    copyToClipboard(url).then((ok) => {
+      this.onToast && this.onToast(ok ? 'Link copied · share this look' : 'Copy failed — selecting text', ok ? 'ok' : 'warn');
+    });
   }
 
   toggleFullscreen(){
@@ -230,20 +353,44 @@ export class Controls {
 
   _wireOverlays(){
     document.querySelectorAll('[data-close]').forEach(b => {
-      b.addEventListener('click', () => {
-        document.querySelectorAll('.overlay').forEach(o => o.classList.remove('show'));
-      });
+      b.addEventListener('click', () => this._closeOverlays());
     });
     document.querySelectorAll('.overlay').forEach(o => {
       o.addEventListener('click', (e) => {
-        if (e.target === o) o.classList.remove('show');
+        if (e.target === o) this._closeOverlays();
+      });
+      // simple focus trap within the sheet while open
+      o.addEventListener('keydown', (e) => {
+        if (e.key !== 'Tab' || !o.classList.contains('show')) return;
+        const focusable = o.querySelectorAll(
+          'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+        );
+        if (!focusable.length) return;
+        const first = focusable[0], last = focusable[focusable.length - 1];
+        if (e.shiftKey && document.activeElement === first){ e.preventDefault(); last.focus(); }
+        else if (!e.shiftKey && document.activeElement === last){ e.preventDefault(); first.focus(); }
       });
     });
   }
 
   _openOverlay(id){
-    document.getElementById(id).classList.add('show');
+    const o = document.getElementById(id);
+    if (!o) return;
+    this._lastFocusedBeforeOverlay = document.activeElement;
+    o.classList.add('show');
     if (id === 'presetsOverlay') this._renderPresets();
+    // focus close button so Esc / Tab is intuitive
+    queueMicrotask(() => {
+      const close = o.querySelector('[data-close]');
+      if (close) close.focus();
+    });
+  }
+  _closeOverlays(){
+    document.querySelectorAll('.overlay').forEach(o => o.classList.remove('show'));
+    if (this._lastFocusedBeforeOverlay){
+      try { this._lastFocusedBeforeOverlay.focus(); } catch {}
+      this._lastFocusedBeforeOverlay = null;
+    }
   }
 
   _wireFileInput(){
@@ -274,8 +421,9 @@ export class Controls {
       this.audio.fileSeek((+scrub.value / 1000) * dur);
       scrubbing = false;
     });
-    // ticker
-    setInterval(() => {
+    // ticker — singleton; guarded against re-init
+    if (this._fileTickerId) clearInterval(this._fileTickerId);
+    this._fileTickerId = setInterval(() => {
       if (this.audio.sourceType !== 'file') return;
       const dur = this.audio.fileDuration();
       const cur = this.audio.fileCurrentTime();
@@ -376,11 +524,15 @@ export class Controls {
         if (!key) return;
         const newVal = !t.classList.contains('on');
         t.classList.toggle('on', newVal);
+        if (t.hasAttribute('role')) t.setAttribute('aria-checked', newVal ? 'true' : 'false');
+        t.classList.remove('pop'); void t.offsetWidth; t.classList.add('pop');
         this.settings[key] = newVal;
         saveSettings(this.settings);
         if (key === 'strobeGuard') this.viz.setStrobeGuard(newVal);
         if (key === 'showBpm') document.querySelector('.bpm-badge').style.display = newVal ? '' : 'none';
         if (key === 'autoHide' && !newVal) this._showChrome();
+        if (key === 'hueRotate') this.viz.setHueRotate(newVal, this.settings.hueCycleSec);
+        if (key === 'showFps') document.getElementById('fpsChip')?.classList.toggle('show', newVal);
       });
     });
     document.querySelectorAll('[data-int]').forEach(b => {
@@ -426,8 +578,12 @@ export class Controls {
       document.getElementById('sensVal').textContent = s;
     }
     else if (key === 'p' || key === 'P'){ this._openOverlay('presetsOverlay'); }
+    else if (key === '?'){ e.preventDefault(); this._openOverlay('helpOverlay'); }
+    else if (key === 't' || key === 'T'){ this._tapTempo(performance.now()); }
+    else if (key === 'r' || key === 'R'){ this._toggleRecording && this._toggleRecording(); }
+    else if (key === 's' || key === 'S'){ this._shareCurrent && this._shareCurrent(); }
     else if (key === 'Escape'){
-      document.querySelectorAll('.overlay').forEach(o => o.classList.remove('show'));
+      this._closeOverlays();
       document.getElementById('dropzone').classList.remove('show');
     }
     else if (key === ' '){

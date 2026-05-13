@@ -2,34 +2,102 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>lofy — Music. Color. Live.</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>lofy — Music. Color. Live. · Browser DJ Visualizer</title>
 <meta name="description" content="A browser-native DJ visualizer. Real-time beat-reactive visuals — synced to your music in milliseconds. No install, no login, no backend.">
+<meta name="keywords" content="DJ visualizer, music visualizer, web audio visualizer, beat detection, audio reactive, real-time visuals, fullscreen visualizer, PWA, browser DJ tool, party visuals">
+<meta name="author" content="lofy">
 <meta name="theme-color" content="#0a0a0d">
+<meta name="color-scheme" content="dark">
+<meta name="referrer" content="strict-origin-when-cross-origin">
+
+<link rel="canonical" href="https://lofy.app/">
+
+<!-- Open Graph -->
+<meta property="og:title" content="lofy — Music. Color. Live.">
+<meta property="og:description" content="A browser-native DJ visualizer. Real-time beat-reactive visuals — synced to your music in milliseconds. No install, no login, no backend.">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://lofy.app/">
+<meta property="og:image" content="https://lofy.app/assets/og-image.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="lofy — DJ visualizer for the browser">
+<meta property="og:site_name" content="lofy">
+<meta property="og:locale" content="en_US">
+
+<!-- Twitter Card -->
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="lofy — Music. Color. Live.">
+<meta name="twitter:description" content="Browser-native DJ visualizer. Beat-reactive visuals, zero install.">
+<meta name="twitter:image" content="https://lofy.app/assets/og-image.png">
+<meta name="twitter:image:alt" content="lofy — DJ visualizer for the browser">
+
+<!-- iOS PWA -->
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="lofy">
+<meta name="format-detection" content="telephone=no">
+
+<!-- Windows / Edge tile -->
+<meta name="msapplication-TileColor" content="#0a0a0d">
+<meta name="msapplication-config" content="./browserconfig.xml">
 
 <link rel="manifest" href="./manifest.json">
 <link rel="icon" type="image/svg+xml" href="./assets/favicon.svg">
+<link rel="alternate icon" href="./assets/icon-192.png" type="image/png">
 <link rel="apple-touch-icon" href="./assets/icon-192.png">
 
+<link rel="dns-prefetch" href="//fonts.googleapis.com">
+<link rel="dns-prefetch" href="//fonts.gstatic.com">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Bagel+Fat+One&family=JetBrains+Mono:wght@300;400;500;700&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
 
 <link rel="stylesheet" href="./css/main.css">
 <link rel="stylesheet" href="./css/landing.css">
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "WebApplication",
+  "name": "lofy",
+  "alternateName": "lofy DJ Visualizer",
+  "description": "A browser-native DJ visualizer. Real-time beat-reactive visuals synced to your music in milliseconds. No install, no login, no backend.",
+  "url": "https://lofy.app/",
+  "applicationCategory": "MultimediaApplication",
+  "operatingSystem": "Any (modern browser)",
+  "browserRequirements": "Requires JavaScript and Web Audio API. Best in Chrome, Edge, Firefox, Safari.",
+  "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
+  "image": "https://lofy.app/assets/og-image.png",
+  "screenshot": "https://lofy.app/assets/og-image.png",
+  "featureList": [
+    "Real-time beat-reactive visuals",
+    "Microphone, file upload, and tab audio capture",
+    "Spectrum bars, Beat Flash, and Particle Storm modes",
+    "Tap-tempo BPM override",
+    "Custom palettes and presets",
+    "Strobe safety guard",
+    "Fullscreen for HDMI / projector output",
+    "Installable as a PWA",
+    "Records 30-second clips for sharing"
+  ],
+  "creator": { "@type": "Organization", "name": "lofy" }
+}
+</script>
 </head>
 <body class="landing grain">
 
-<nav>
-  <div class="brand"><span class="brand-dot"></span> lofy</div>
+<nav aria-label="primary">
+  <a href="#top" class="brand" aria-label="lofy home"><span class="brand-dot" aria-hidden="true"></span> lofy</a>
   <div class="nav-links">
     <a href="#modes">Modes</a>
     <a href="#how">How</a>
     <a href="./app.html">Launch</a>
-    <a href="#about">About</a>
+    <a href="https://github.com/amany2301/lofy" target="_blank" rel="noopener" aria-label="lofy on GitHub">GitHub</a>
   </div>
-  <div class="nav-meta">v1.0 · <span>● LIVE</span></div>
+  <div class="nav-meta">v1.1 · <span>● LIVE</span></div>
 </nav>
+<a id="top" tabindex="-1" aria-hidden="true"></a>
 
 <div class="ticker" aria-hidden="true">
   <div class="ticker-track">
@@ -93,26 +161,26 @@
 </section>
 
 <section class="modes" id="modes">
-  <div class="modes-head">
+  <div class="modes-head scroll-in">
     <h2>Three modes. <em>One vibe.</em></h2>
     <div class="count">[ <span>03</span> · VISUAL ENGINES ]</div>
   </div>
   <div class="modes-grid">
-    <div class="mode-card">
+    <div class="mode-card scroll-in d1">
       <div class="num">MODE <span>/01</span></div>
       <h3>Spectrum<br>Bars</h3>
       <p>FFT-driven bars across the canvas. Low end paints the left, highs the right. Peak dots float with a slow decay — it breathes with the track.</p>
       <div class="specs"><span>FFT <b>2048</b></span><span>BARS <b>64</b></span><span>60FPS</span></div>
       <div class="vis"><canvas id="vis1"></canvas></div>
     </div>
-    <div class="mode-card">
+    <div class="mode-card scroll-in d2">
       <div class="num">MODE <span>/02</span></div>
       <h3>Beat<br>Flash</h3>
       <p>Whole canvas pulses on every kick. Color cycles through your palette beat by beat. Strobe guard caps it at 3Hz so nobody falls over.</p>
       <div class="specs"><span>BAND <b>20–200Hz</b></span><span>LERP <b>300MS</b></span><span>SAFE</span></div>
       <div class="vis"><canvas id="vis2"></canvas></div>
     </div>
-    <div class="mode-card">
+    <div class="mode-card scroll-in d3">
       <div class="num">MODE <span>/03</span></div>
       <h3>Particle<br>Storm</h3>
       <p>Beats explode out of the center. 500 particles at full tilt, each radiating with a lifespan tied to mid-band energy. Pure dancefloor chaos.</p>
@@ -123,19 +191,19 @@
 </section>
 
 <section class="how" id="how">
-  <div class="how-head">From silence to <b>showtime</b> in <b>three moves.</b></div>
+  <div class="how-head scroll-in">From silence to <b>showtime</b> in <b>three moves.</b></div>
   <div class="steps">
-    <div class="step">
+    <div class="step scroll-in d1">
       <div class="step-num">01</div>
       <h4>Pick your source</h4>
       <p>Mic, file upload, or capture a browser tab. Web Audio handles it — your audio never leaves the device.</p>
     </div>
-    <div class="step">
+    <div class="step scroll-in d2">
       <div class="step-num">02</div>
       <h4>Choose a mode</h4>
       <p>Spectrum, Flash, or Particles. Hit a palette. Slide the sensitivity. Save it as a preset for next gig.</p>
     </div>
-    <div class="step">
+    <div class="step scroll-in d3">
       <div class="step-num">03</div>
       <h4>Press F. Go full.</h4>
       <p>HDMI to a TV or projector. The room responds to every beat. That's it — you're running visuals.</p>
@@ -144,15 +212,38 @@
 </section>
 
 <footer class="foot" id="about">
-  <div class="foot-mega">lofy</div>
-  <div class="foot-row">
-    <div>© 2026 lofy · v1.0</div>
-    <div style="display:flex;gap:24px">
-      <a href="./app.html">Launch</a>
-      <a href="#modes">Modes</a>
-      <a href="#how">How</a>
-      <a href="./app.html#settings">Settings</a>
+  <div class="foot-mega scroll-in">lofy</div>
+
+  <div class="foot-cols">
+    <div class="foot-col">
+      <div class="foot-h">lofy</div>
+      <p class="foot-p">A browser-native DJ visualizer. Built for laptops, phones, and HDMI-connected TVs. Free, no install, no backend.</p>
     </div>
+    <div class="foot-col">
+      <div class="foot-h">Product</div>
+      <ul class="foot-list">
+        <li><a href="./app.html">Launch visualizer</a></li>
+        <li><a href="#modes">Visual modes</a></li>
+        <li><a href="#how">How it works</a></li>
+        <li><a href="./app.html?ref=footer">Settings</a></li>
+      </ul>
+    </div>
+    <div class="foot-col">
+      <div class="foot-h">Open Source</div>
+      <ul class="foot-list">
+        <li><a href="https://github.com/amany2301/lofy" target="_blank" rel="noopener">GitHub repo ↗</a></li>
+        <li><a href="https://github.com/amany2301/lofy/commits/main" target="_blank" rel="noopener">Changelog ↗</a></li>
+        <li><a href="https://github.com/amany2301/lofy/issues" target="_blank" rel="noopener">Report an issue ↗</a></li>
+      </ul>
+    </div>
+    <div class="foot-col">
+      <div class="foot-h">About</div>
+      <p class="foot-p">v1.1 · MIT · Built for the browser. Audio never leaves your device.</p>
+    </div>
+  </div>
+
+  <div class="foot-row">
+    <div>© 2026 lofy</div>
     <div>BUILT FOR THE BROWSER</div>
   </div>
   <div class="strobe">Contains flashing lights. Strobe guard is on by default — toggle in Settings.</div>

@@ -25,6 +25,8 @@ export class AudioEngine {
     this._fileStartTime = 0;
     this._fileOffset = 0;
     this._filePlaying = false;
+    this._pendingStart = false;     // guard for rapid play/pause races
+    this._loop = false;             // demo audio loops; file does not
   }
 
   _ensureContext(){
@@ -68,9 +70,9 @@ export class AudioEngine {
   }
 
   _disconnectSource(){
-    try { if (this.source) this.source.disconnect(); } catch {}
-    try { if (this.bufferNode) this.bufferNode.disconnect(); } catch {}
-    try { if (this.elSource) this.elSource.disconnect(); } catch {}
+    if (this.source)     { try { this.source.disconnect(); }     catch {} }
+    if (this.bufferNode) { try { this.bufferNode.disconnect(); } catch {} }
+    if (this.elSource)   { try { this.elSource.disconnect(); }   catch {} }
     if (this.stream){
       this.stream.getTracks().forEach(t => t.stop());
       this.stream = null;
@@ -81,13 +83,16 @@ export class AudioEngine {
       this.audioEl = null;
     }
     if (this.bufferNode){
-      try { this.bufferNode.stop(); } catch {}
+      try { this.bufferNode.onended = null; this.bufferNode.stop(); } catch {}
       this.bufferNode = null;
     }
     this.source = null;
     this.elSource = null;
     this._filePlaying = false;
+    this._pendingStart = false;
+    this._loop = false;
     this.fileName = null;
+    this.buffer = null;
     if (this.onPlayState) this.onPlayState(false);
   }
 
@@ -130,47 +135,72 @@ export class AudioEngine {
   async useFile(file){
     await this.resume();
     this._disconnectSource();
-    const buf = await file.arrayBuffer();
+    let buf;
+    try {
+      buf = await file.arrayBuffer();
+    } catch {
+      throw new Error('Could not read that file. Try a different one.');
+    }
     let audioBuffer;
     try {
       audioBuffer = await this.ctx.decodeAudioData(buf);
-    } catch(err){
+    } catch {
       throw new Error('Unsupported file format. Try MP3, WAV, or OGG.');
     }
+    this._useBuffer(audioBuffer, file.name, { loop: false, type: 'file' });
+  }
+
+  // Shared entry point for any AudioBuffer source (file or synthesised demo).
+  _useBuffer(audioBuffer, name, opts = {}){
     this.buffer = audioBuffer;
-    this.fileName = file.name;
-    this.sourceType = 'file';
+    this.fileName = name;
+    this.sourceType = opts.type || 'file';
+    this._loop = !!opts.loop;
     this._fileOffset = 0;
     this._startBufferAt(0);
-    if (this.onTrackInfo) this.onTrackInfo(file.name, audioBuffer.duration);
+    if (this.onTrackInfo) this.onTrackInfo(name, audioBuffer.duration);
+  }
+
+  // Demo audio entry — caller supplies a pre-synthesised AudioBuffer.
+  useDemo(audioBuffer, label = 'Demo Loop · 128 BPM'){
+    if (!this.ctx) this._ensureContext();
+    if (this.ctx.state === 'suspended') this.ctx.resume();
+    this._disconnectSource();
+    this._useBuffer(audioBuffer, label, { loop: true, type: 'file' });
   }
 
   _startBufferAt(offsetSec){
-    if (this.bufferNode){
-      try { this.bufferNode.onended = null; this.bufferNode.stop(); } catch {}
-      this.bufferNode = null;
-    }
-    const node = this.ctx.createBufferSource();
-    node.buffer = this.buffer;
-    node.connect(this.gain);
-    node.connect(this.ctx.destination);  // play out loud for file mode
-    node.start(0, offsetSec);
-    node.onended = () => {
-      // natural end vs manual stop
-      if (this.bufferNode === node){
-        this._filePlaying = false;
-        if (this.onPlayState) this.onPlayState(false);
+    if (this._pendingStart) return;
+    this._pendingStart = true;
+    try {
+      if (this.bufferNode){
+        try { this.bufferNode.onended = null; this.bufferNode.stop(); } catch {}
+        this.bufferNode = null;
       }
-    };
-    this.bufferNode = node;
-    this._fileStartTime = this.ctx.currentTime - offsetSec;
-    this._fileOffset = offsetSec;
-    this._filePlaying = true;
-    if (this.onPlayState) this.onPlayState(true);
+      const node = this.ctx.createBufferSource();
+      node.buffer = this.buffer;
+      node.loop = !!this._loop;
+      node.connect(this.gain);
+      node.connect(this.ctx.destination);
+      node.start(0, offsetSec);
+      node.onended = () => {
+        if (this.bufferNode === node && !this._loop){
+          this._filePlaying = false;
+          if (this.onPlayState) this.onPlayState(false);
+        }
+      };
+      this.bufferNode = node;
+      this._fileStartTime = this.ctx.currentTime - offsetSec;
+      this._fileOffset = offsetSec;
+      this._filePlaying = true;
+      if (this.onPlayState) this.onPlayState(true);
+    } finally {
+      this._pendingStart = false;
+    }
   }
 
   filePlayPause(){
-    if (this.sourceType !== 'file' || !this.buffer) return;
+    if (this.sourceType !== 'file' || !this.buffer || this._pendingStart) return;
     if (this._filePlaying){
       const cur = this.fileCurrentTime();
       this._fileOffset = cur;
@@ -196,9 +226,11 @@ export class AudioEngine {
   fileCurrentTime(){
     if (!this.buffer) return 0;
     if (this._filePlaying){
-      return Math.min(this.buffer.duration, this.ctx.currentTime - this._fileStartTime);
+      const t = this.ctx.currentTime - this._fileStartTime;
+      if (this._loop) return t % this.buffer.duration;
+      return Math.min(this.buffer.duration, t);
     }
-    return this._fileOffset;
+    return Math.min(this.buffer.duration, this._fileOffset);
   }
 
   fileDuration(){

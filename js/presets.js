@@ -13,6 +13,9 @@ export const DEFAULT_SETTINGS = {
   colorIntensity: 'med',
   autoHide: true,
   shortcuts: true,
+  hueRotate: false,
+  hueCycleSec: 45,
+  showFps: false,
 };
 
 function safeParse(s, fallback){

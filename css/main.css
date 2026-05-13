@@ -24,7 +24,46 @@ html,body{
   -webkit-font-smoothing:antialiased;
   text-rendering:optimizeLegibility;
 }
-html{overflow-x:hidden}
+html{
+  overflow-x:hidden;
+  scroll-behavior:smooth;
+  scroll-padding-top:96px;      /* offset for fixed nav */
+}
+/* Custom scrollbar — slim, on-brand */
+::-webkit-scrollbar{width:10px;height:10px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:rgba(244,240,230,.12);border-radius:0}
+::-webkit-scrollbar-thumb:hover{background:var(--magenta)}
+html{scrollbar-color:rgba(244,240,230,.18) transparent;scrollbar-width:thin}
+
+@media (prefers-reduced-motion: reduce){
+  html{scroll-behavior:auto}
+  .reveal,.scroll-in{opacity:1!important;transform:none!important;animation:none!important;transition:none!important}
+  .controls,.topbar,.toast,.sheet,.overlay,.toggle,.pill{transition:none!important;animation:none!important}
+  .brand-dot,.bpm-dot{animation:none!important}
+}
+
+/* Focus rings — keyboard-only, never on mouse click */
+:focus{outline:none}
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+[role="switch"]:focus-visible,
+[role="button"]:focus-visible,
+.pill:focus-visible,
+.icon-btn:focus-visible,
+.swatch:focus-visible,
+.swatch-add:focus-visible,
+.toggle:focus-visible,
+.slider:focus-visible{
+  outline:2px solid var(--cyan);
+  outline-offset:2px;
+  box-shadow:0 0 0 4px rgba(0,240,255,0.18);
+}
+
+/* Toggle micro-animation */
+@keyframes togglePop{0%{transform:scale(1)}40%{transform:scale(1.08)}100%{transform:scale(1)}}
+.toggle.pop{animation:togglePop .2s cubic-bezier(.2,.7,.2,1)}
 body{min-height:100vh;position:relative;overflow-x:hidden}
 button{font:inherit;color:inherit;background:none;border:none;cursor:pointer}
 a{color:inherit;text-decoration:none}
@@ -47,5 +86,16 @@ img,svg{display:block;max-width:100%}
 @keyframes up{to{opacity:1;transform:translateY(0)}}
 
 @keyframes pulse{0%,100%{transform:scale(1);opacity:1}50%{transform:scale(1.4);opacity:.6;box-shadow:0 0 20px var(--magenta)}}
+
+/* Scroll-triggered reveal — opacity + slight rise. JS toggles .in. */
+.scroll-in{
+  opacity:0;transform:translateY(28px);
+  transition:opacity .7s cubic-bezier(.22,.65,.2,1), transform .7s cubic-bezier(.22,.65,.2,1);
+  will-change:opacity, transform;
+}
+.scroll-in.in{opacity:1;transform:translateY(0)}
+.scroll-in.d1{transition-delay:.05s}
+.scroll-in.d2{transition-delay:.12s}
+.scroll-in.d3{transition-delay:.2s}
 
 .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}

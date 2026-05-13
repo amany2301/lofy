@@ -16,6 +16,13 @@ export class BeatDetector {
     this.strobeGuard = false;
     this.intervals = [];            // recent inter-beat intervals (ms)
     this.bpm = 0;
+    this.manualBpm = 0;             // > 0 = override; visualizer uses this cadence
+    this._manualNextBeat = 0;       // ms timestamp of next emitted beat
+  }
+
+  setManualBpm(n){
+    this.manualBpm = (n > 0) ? n : 0;
+    this._manualNextBeat = 0;
   }
 
   setStrobeGuard(on){ this.strobeGuard = !!on; }
@@ -28,6 +35,18 @@ export class BeatDetector {
 
   // freqData: Uint8Array (0..255), nowMs: performance.now()
   update(freqData, sampleRate, fftSize, nowMs){
+    // Manual override — emit beats at a fixed cadence regardless of audio.
+    if (this.manualBpm){
+      const period = 60000 / this.manualBpm;
+      if (!this._manualNextBeat) this._manualNextBeat = nowMs;
+      if (nowMs >= this._manualNextBeat){
+        this._manualNextBeat += period;
+        this.bpm = this.manualBpm;
+        this.lastBeatMs = nowMs;
+        return true;
+      }
+      return false;
+    }
     if (!freqData) return false;
     const lo = 40, hi = 180;        // tight kick-drum band
     const binHz = sampleRate / fftSize;
