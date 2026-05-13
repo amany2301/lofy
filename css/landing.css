@@ -33,6 +33,10 @@ nav{
   border-bottom:1px solid var(--hairline);
   overflow:hidden;background:var(--ink-2);
   height:36px;display:flex;align-items:center;
+  /* Fade edges so partial words at the left/right look intentional,
+     not like random glitches. */
+  -webkit-mask-image: linear-gradient(to right, transparent 0%, black 6%, black 94%, transparent 100%);
+          mask-image: linear-gradient(to right, transparent 0%, black 6%, black 94%, transparent 100%);
 }
 .ticker-track{display:flex;gap:48px;animation:scroll 38s linear infinite;white-space:nowrap;padding-left:48px}
 .ticker-track span{font-family:'Bagel Fat One',serif;font-size:18px;letter-spacing:.02em;color:var(--paper);display:flex;align-items:center;gap:48px}
