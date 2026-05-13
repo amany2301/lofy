@@ -161,8 +161,12 @@ document.getElementById('tryDemoBtn')?.addEventListener('click', () => playDemo(
 // expose recorder toggle so controls.js keyboard binding (R) works
 controls._toggleRecording = () => recorder.toggle();
 
-// Highlight default pills
-document.querySelector('[data-mode="' + controls.activeMode + '"]')?.classList.add('active');
+// Sync mode + source pill highlight with restored / default state.
+// Replaces a buggy plain classList.add — that left Spectrum's hardcoded
+// "active" class in place when last-state restored a different mode,
+// resulting in TWO pills appearing selected at once.
+controls._setActivePill('modeGroup', 'mode', controls.activeMode);
+controls._setActivePill('srcGroup', 'src', controls.activeSource);
 
 viz.start();
 autoStart();
