@@ -89,10 +89,17 @@ export function drawFlash(ctx, W, H, palette, opts){
   // fast-attack, slow-release envelope of overall energy
   totalEnv += (total - totalEnv) * (total > totalEnv ? 0.55 : 0.10);
 
-  // Smoothly approach the latest beat index — gives a gentle color transition
-  // instead of a snap. Higher reactivity = faster shifts.
-  const lerp = 0.06 + (reactivity / 10) * 0.18;
-  curIx += (beatIx - curIx) * lerp;
+  // Color rotation:
+  // • Normal palettes: curIx eases toward beatIx (one step per detected beat)
+  // • Party palettes: curIx is driven directly by time so colors cycle
+  //   through EVERY palette stop continuously, ~partyStrobeMs per color.
+  if (opts.party && opts.partyStrobeMs > 0){
+    const elapsed = (opts.now || performance.now()) - (opts.partyStart || 0);
+    curIx = (elapsed / opts.partyStrobeMs) % Math.max(2, palette.length);
+  } else {
+    const lerp = 0.06 + (reactivity / 10) * 0.18;
+    curIx += (beatIx - curIx) * lerp;
+  }
 
   // Current active color = interpolation between two adjacent palette stops
   const lo = Math.floor(curIx);

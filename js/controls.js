@@ -235,16 +235,17 @@ export class Controls {
   _swatchEl(p){
     const el = document.createElement('button');
     el.className = 'swatch';
+    if (p.party) el.classList.add('party');
     el.dataset.pid = p.id;
-    el.title = p.name;
+    el.title = p.party
+      ? `${p.name} — auto-strobes every color (DJ mode)`
+      : p.name;
     el.setAttribute('aria-label', `Palette: ${p.name}`);
-    const cols = p.colors.slice(0, 4);
-    while (cols.length < 4) cols.push(cols[cols.length-1] || '#000');
-    el.innerHTML = `
-      <div class="s1" style="background:${cols[0]}"></div>
-      <div class="s2" style="background:${cols[1]}"></div>
-      <div class="s3" style="background:${cols[2]}"></div>
-      <div class="s4" style="background:${cols[3]}"></div>`;
+    // Party palettes show a tighter rainbow preview using more of the colors
+    const N = p.party ? Math.min(p.colors.length, 6) : 4;
+    const cols = p.colors.slice(0, N);
+    while (cols.length < N) cols.push(cols[cols.length-1] || '#000');
+    el.innerHTML = cols.map((c, i) => `<div class="s${i+1}" style="background:${c}"></div>`).join('');
     return el;
   }
 
@@ -256,8 +257,12 @@ export class Controls {
 
   setPalette(p){
     this.activePaletteId = p.id;
-    this.viz.setPalette(p.colors);
+    this.viz.setPalette(p);              // pass full preset so party flag flows
     this._highlightActiveSwatch();
+    // Party palettes look best in Flash mode — auto-switch unless user already chose
+    if (p.party && this.activeMode !== 'flash'){
+      this.setMode('flash');
+    }
   }
 
   _wireIconButtons(){

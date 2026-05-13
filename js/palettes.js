@@ -10,6 +10,22 @@ export const BUILTIN_PALETTES = [
   { id:'deep-space',   name:'Deep Space',   mode:'particles', colors:['#042C53','#534AB7','#0F6E56','#00f0ff'] },
   // Brand default — lofy's identity palette
   { id:'lofy-default', name:'Lofy Default', mode:'spectrum',  colors:['#ff2d87','#7a3cff','#00f0ff','#d8ff3a'] },
+
+  // RAINBOW RAVE — every color, auto-strobing at ~8 Hz. Built for dancing.
+  // When active, the canvas continuously cycles colors regardless of beat
+  // detection; kick onsets still slam over the top for extra punch.
+  {
+    id: 'rainbow-rave',
+    name: 'Rainbow Rave',
+    mode: 'flash',
+    party: true,
+    partyStrobeMs: 120,           // 120 ms per color = ~8 colors / second
+    colors: [
+      '#ff003c','#ff5e00','#ffea00','#9eff00',
+      '#00ff66','#00ffd5','#00b3ff','#0048ff',
+      '#7800ff','#d400ff','#ff00aa','#ffffff',
+    ],
+  },
 ];
 
 export function paletteById(id){

@@ -55,9 +55,24 @@ export class Visualizer {
     this.ctx.fillStyle = '#0a0a0d';
     this.ctx.fillRect(0, 0, this.W, this.H);
   }
-  setPalette(colors){
+  setPalette(input){
+    // Accept either a raw colors array (legacy) or a full preset object so
+    // metadata like `party` / `partyStrobeMs` survives selection.
+    let colors, party = false, partyStrobeMs = 120;
+    if (Array.isArray(input)){
+      colors = input;
+    } else if (input && typeof input === 'object'){
+      colors = (input.colors || input.palette || []).slice();
+      party = !!input.party;
+      partyStrobeMs = +input.partyStrobeMs || 120;
+    } else {
+      return;
+    }
     this.palette = colors.slice();
-    // If hue rotation is on, keep the new colors as the base
+    this.party = party;
+    this.partyStrobeMs = partyStrobeMs;
+    this._partyStart = performance.now();
+
     if (this.hueRotate){
       this._basePalette = colors.slice();
       this._hueRotateStart = performance.now();
@@ -172,6 +187,10 @@ export class Visualizer {
       freqData: freq,
       sampleRate: this.audio.ctx.sampleRate,
       fftSize: this.audio.analyser.fftSize,
+      party: this.party,
+      partyStrobeMs: this.partyStrobeMs,
+      partyStart: this._partyStart,
+      now,
     };
 
     if (this.mode === 'spectrum') drawSpectrum(this.ctx, this.W, this.H, freq, this.palette, opts);

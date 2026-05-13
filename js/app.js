@@ -74,13 +74,13 @@ if (shareState){
   if (last.mode) { viz.setMode(last.mode); controls.activeMode = last.mode; }
   if (last.paletteId){
     const p = paletteById(last.paletteId);
-    viz.setPalette(p.colors);
+    viz.setPalette(p);                                  // pass full preset
     controls.activePaletteId = p.id;
   }
 } else {
   // default
   const p = paletteById('lofy-default');
-  viz.setPalette(p.colors);
+  viz.setPalette(p);
   viz.setMode('spectrum');
 }
 

@@ -83,7 +83,18 @@ html,body.app{height:100%;background:#000;color:var(--paper);overflow:hidden}
 }
 .swatch:hover{transform:scale(1.08)}
 .swatch.active{border-color:var(--paper);box-shadow:0 0 0 1px rgba(0,0,0,.6)}
-.swatch .s1,.swatch .s2,.swatch .s3,.swatch .s4{flex:1}
+.swatch > div{flex:1}
+.swatch.party{
+  position:relative;
+  box-shadow:0 0 0 1px var(--acid), 0 0 14px rgba(216,255,58,.45);
+  animation:partyPulse 1.6s ease-in-out infinite;
+}
+.swatch.party::after{
+  content:"✦";position:absolute;top:-3px;right:-3px;
+  width:11px;height:11px;display:flex;align-items:center;justify-content:center;
+  font-size:10px;background:var(--acid);color:var(--ink);line-height:1;
+}
+@keyframes partyPulse{0%,100%{box-shadow:0 0 0 1px var(--acid), 0 0 10px rgba(216,255,58,.3)}50%{box-shadow:0 0 0 1px var(--magenta), 0 0 18px rgba(255,45,135,.5)}}
 .swatch-add{
   flex-shrink:0;width:30px;height:30px;border:1px dashed rgba(244,240,230,.3);
   display:flex;align-items:center;justify-content:center;color:rgba(244,240,230,.5);
