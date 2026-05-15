@@ -441,9 +441,16 @@ export class Controls {
       // simple focus trap within the sheet while open
       o.addEventListener('keydown', (e) => {
         if (e.key !== 'Tab' || !o.classList.contains('show')) return;
-        const focusable = o.querySelectorAll(
+        const allFocusable = o.querySelectorAll(
           'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
         );
+        // Exclude focusables inside hidden room-views (Room sheet has 9
+        // views toggled via [hidden]; Tab must NOT cycle into them).
+        const focusable = Array.from(allFocusable).filter((el) => {
+          if (el.disabled) return false;
+          const view = el.closest('.room-view');
+          return !view || !view.hidden;
+        });
         if (!focusable.length) return;
         const first = focusable[0], last = focusable[focusable.length - 1];
         if (e.shiftKey && document.activeElement === first){ e.preventDefault(); last.focus(); }
@@ -799,6 +806,10 @@ export class Controls {
   // ─── HOST · QR path ───────────────────────────────────────────────
 
   async _hostStartQr(){
+    if (this._currentRoom){
+      this.onToast && this.onToast('Leave your current room first', 'warn');
+      return;
+    }
     try {
       const { loadQrLibs, encodeSdpForQr, renderQrToCanvas } =
         await import('./qr-signal.js');
@@ -878,6 +889,10 @@ export class Controls {
   // ─── HOST · Code path ─────────────────────────────────────────────
 
   async _hostStartCode(){
+    if (this._currentRoom){
+      this.onToast && this.onToast('Leave your current room first', 'warn');
+      return;
+    }
     try {
       const { attachHostToBroker } = await import('./peer-signal.js');
       const code = generateRoomCode();
@@ -918,6 +933,10 @@ export class Controls {
   // ─── GUEST · QR path ──────────────────────────────────────────────
 
   async _guestStartScan(){
+    if (this._currentRoom){
+      this.onToast && this.onToast('Leave your current room first', 'warn');
+      return;
+    }
     try {
       const { loadQrLibs, startCameraScan, decodeSdpFromQr, encodeSdpForQr, renderQrToCanvas } =
         await import('./qr-signal.js');
@@ -944,13 +963,21 @@ export class Controls {
             this._roomShowView('guest-answer');
             // Wait for host to scan our answer — connection will fire 'connect'
           } catch (err){
-            this.onToast && this.onToast('Couldn\'t parse QR: ' + (err.message || err), 'warn');
+            const raw = String(err && err.message || err);
+            const msg = /Not a lofy QR/.test(raw)
+              ? 'Not a lofy QR code — try the Code path instead'
+              : 'Couldn\'t parse QR: ' + raw;
+            this.onToast && this.onToast(msg, 'warn');
             this._roomShowView('guest-pick');
           }
         },
         onError: (err) => {
+          let msg = err && err.message || String(err);
+          if (/NotAllowed|Permission|denied/i.test(msg)){
+            msg = 'Camera permission denied — use the Code path to join instead';
+          }
           const el = document.getElementById('guestScanStatus');
-          if (el){ el.textContent = err.message || String(err); el.classList.add('error'); }
+          if (el){ el.textContent = msg; el.classList.add('error'); }
         },
       });
     } catch (err){
@@ -961,6 +988,10 @@ export class Controls {
   // ─── GUEST · Code path ────────────────────────────────────────────
 
   async _guestJoinCode(){
+    if (this._currentRoom){
+      this.onToast && this.onToast('Leave your current room first', 'warn');
+      return;
+    }
     const input = document.getElementById('guestCodeInput');
     const status = document.getElementById('guestCodeStatus');
     const raw = (input?.value || '').toUpperCase().trim();
@@ -1041,19 +1072,24 @@ export class Controls {
     // Hijack setMode + setPalette + setReactivity to also broadcast
     this._origSetMode = this.setMode.bind(this);
     this._origSetPal  = this.setPalette.bind(this);
+    // When hue rotation is on, this.viz.palette is the CURRENT-frame
+    // rotated colors. Guests should receive the BASE palette so their
+    // visuals don't snap to the host's instantaneous hue and then drift.
+    const palettePayload = () => (this.viz._basePalette || this.viz.palette).slice();
+
     this.setMode = (m) => {
       this._origSetMode(m);
-      host.broadcastState({ mode: m });
+      host.broadcastState({ mode: m, palette: palettePayload() });
     };
     this.setPalette = (p) => {
       this._origSetPal(p);
-      host.broadcastState({ mode: this.activeMode, palette: this.viz.palette });
+      host.broadcastState({ mode: this.activeMode, palette: palettePayload() });
     };
 
     // Send current state immediately for late joiners
     host.broadcastState({
       mode: this.activeMode,
-      palette: this.viz.palette,
+      palette: palettePayload(),
       react: this.settings.reactivity,
     });
 
@@ -1074,10 +1110,29 @@ export class Controls {
     // Disable mode + source pills since the host drives them
     document.querySelectorAll('#srcGroup .pill').forEach((p) => p.classList.add('disabled'));
 
+    // Disable Sens / React sliders — they call audio/viz methods that
+    // are no-ops in followerMode, and the visible knob looks active.
+    ['sens','react','setSens','setReact'].forEach((id) => {
+      const el = document.getElementById(id);
+      if (el) el.disabled = true;
+    });
+
+    // Let app.js know — it can stop an in-flight recording (the canvas
+    // is now showing synthesised visuals, not the real audio response).
+    let recordingStopped = false;
+    if (typeof this.onRoomActivate === 'function'){
+      try { recordingStopped = !!this.onRoomActivate('guest'); } catch {}
+    }
+
     this._updateRoomChip();
     this._roomShowView('connected');
     this._updateRoomConnectedView();
-    this.onToast && this.onToast('Joined room · following host', 'ok');
+    this.onToast && this.onToast(
+      recordingStopped
+        ? 'Joined room · recording stopped (guest mode)'
+        : 'Joined room · following host',
+      'ok',
+    );
   }
 
   _updateRoomChip(){
@@ -1163,6 +1218,10 @@ export class Controls {
    *  to the guest-answer view so they only have to show their phone screen
    *  back to the host. */
   async autoJoinFromPayload(payload){
+    if (this._currentRoom){
+      this.onToast && this.onToast('Already in a room — leave first to join another', 'warn');
+      return;
+    }
     try {
       const {
         loadQrLibs, decodePayloadToSdp, encodeSdpForQr, renderQrToCanvas,
@@ -1205,6 +1264,11 @@ export class Controls {
     if (this._roomKind === 'guest'){
       this.viz.setFollowerMode(false);
       document.querySelectorAll('#srcGroup .pill').forEach((p) => p.classList.remove('disabled'));
+      // Re-enable the Sens / React sliders that we greyed out on join
+      ['sens','react','setSens','setReact'].forEach((id) => {
+        const el = document.getElementById(id);
+        if (el) el.disabled = false;
+      });
     }
 
     this._currentRoom = null;

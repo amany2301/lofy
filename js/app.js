@@ -188,6 +188,17 @@ document.getElementById('tryDemoBtn')?.addEventListener('click', () => playDemo(
 
 // expose recorder toggle so controls.js keyboard binding (R) works
 controls._toggleRecording = () => recorder.toggle();
+
+// When a room activates as guest, the canvas starts showing synthesised
+// visuals — silently continuing a recording would mislead the user.
+// Return true so controls.js can adjust its "joined room" toast.
+controls.onRoomActivate = (kind) => {
+  if (kind === 'guest' && recorder.recorder?.state === 'recording'){
+    try { recorder.stop(); } catch {}
+    return true;
+  }
+  return false;
+};
 // Disable Rec button if MediaRecorder + captureStream aren't supported
 if (!recorder.isSupported()){
   const btnRec = document.getElementById('btnRec');
