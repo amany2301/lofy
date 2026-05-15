@@ -23,6 +23,14 @@ Built for:
 
 ## Features
 
+**Party Rooms (v2.0)** — sync the visuals across every device in the room
+- "Start a Party Room" → host generates a QR code or a 4-letter code
+- Guests scan the QR (in-person) or type the code (remote)
+- Every screen flashes the same color on every kick, in real time
+- **Your device is the server.** No backend, no accounts, no ongoing cost
+- Audio stays on the host's device — only beat events cross the wifi
+- Built on WebRTC data channels with PeerJS's free public broker for remote joins
+
 **Four visual modes**
 - **Spectrum** — log-frequency bars with palette gradient and peak dots
 - **Beat Flash** — full-canvas color slams on every kick, with subtle ambient drift
@@ -50,6 +58,28 @@ Built for:
 - 30-second clip recording (Chrome) via `MediaRecorder`
 - Share a preset as a URL hash (`#m=flash&p=...`)
 - Installable as a PWA — runs offline after first visit
+
+## How Party Rooms work
+
+```
+Host device                                       Guest devices (1..N)
+─────────────                                      ─────────────────────
+mic / file / tab audio                            no local audio needed
+        ↓
+BeatDetector + Visualizer       ◀═ WebRTC P2P ═▶  Visualizer (follower mode)
+        ↓                          data channel          ↑
+broadcast { beat, palette,      ──────────────▶   render the same visuals
+            mode, sens, react }                   using received beat events
+```
+
+**The host's browser tab IS the server.** It holds the room state, detects beats from its own audio, and broadcasts compact JSON events (~5 messages per second per guest) over a WebRTC data channel.
+
+**Two ways to connect:**
+
+1. **In-person (QR codes)** — truly zero servers. Host shows a QR, guest scans it with their phone camera. Guest's browser generates an answer QR, host scans it back. WebRTC connection opens directly between the two devices.
+2. **Remote (4-letter code)** — host types a code, guest types the same code on their device. Uses PeerJS's free public broker for the ~1-second WebRTC handshake, then it's pure peer-to-peer.
+
+**Trade-offs:** ~10-20% of restrictive cellular networks may fail to connect (we don't run a TURN server). Wifi connections are nearly 100% reliable. If the host closes their tab, the room dissolves and guests return to solo mode.
 
 ## Keyboard shortcuts
 
@@ -92,6 +122,9 @@ Pure vanilla — no frameworks.
 - Web Audio API (`AnalyserNode`, `DynamicsCompressorNode`, `BiquadFilterNode`, `OfflineAudioContext`)
 - Canvas 2D rendering at 60 fps
 - `MediaRecorder` + `canvas.captureStream` for clip recording
+- `RTCPeerConnection` + WebRTC data channels for Party Rooms
+- `getUserMedia` (camera) + `jsQR` for QR scanning
+- PeerJS free public broker for remote-code signaling
 - Service worker for offline + cached assets
 - Cloudflare Workers for hosting (auto-deploy on push to `main`)
 
@@ -121,13 +154,16 @@ Unsupported features gracefully disable their UI buttons.
 │   ├── app.js              # App entry point
 │   ├── audio.js            # Web Audio engine (two-branch graph)
 │   ├── bpm.js              # Beat / BPM detection (kick + spectral flux)
-│   ├── visualizer.js       # Render loop, mode dispatch, A-weighting
-│   ├── controls.js         # UI wiring — pills, sliders, keyboard
+│   ├── visualizer.js       # Render loop, mode dispatch, A-weighting, follower mode
+│   ├── controls.js         # UI wiring — pills, sliders, keyboard, room flows
 │   ├── palettes.js         # 10 palettes incl. party-mode strobe
 │   ├── presets.js          # localStorage persistence
 │   ├── recorder.js         # 30s WebM clip capture
 │   ├── share.js            # Preset URL encode/decode
 │   ├── demo-audio.js       # Synthesized demo loop generator
+│   ├── sync.js             # Party Rooms — RoomHost / RoomGuest over WebRTC
+│   ├── qr-signal.js        # Party Rooms — QR encode/decode + camera scanner
+│   ├── peer-signal.js      # Party Rooms — PeerJS broker for remote join
 │   └── modes/
 │       ├── spectrum.js
 │       ├── flash.js
