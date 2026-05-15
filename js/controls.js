@@ -1084,18 +1084,34 @@ export class Controls {
     const chip = document.getElementById('roomChip');
     const codeEl = document.getElementById('roomChipCode');
     const countEl = document.getElementById('roomChipCount');
+    const installPill = document.getElementById('installPill');
     if (!chip || !this._currentRoom){
       if (chip) chip.hidden = true;
+      if (codeEl) codeEl.classList.remove('short');
+      // Re-show install pill if it was suppressed
+      if (installPill && this._installPillSuppressed){
+        installPill.hidden = false;
+        this._installPillSuppressed = false;
+      }
       return;
     }
     chip.hidden = false;
     if (this._roomKind === 'host'){
       codeEl.textContent = this._currentRoom.code;
+      codeEl.classList.remove('short');
       countEl.textContent = String(this._currentRoom.guestCount);
       countEl.hidden = false;
     } else {
-      codeEl.textContent = 'FOLLOWING';
+      // Use the shorter "FOLLOW" label on very narrow phones to avoid wrap
+      const compact = window.innerWidth < 480;
+      codeEl.textContent = compact ? 'FOLLOW' : 'FOLLOWING';
+      codeEl.classList.toggle('short', compact);
       countEl.hidden = true;
+    }
+    // Hide the install-PWA nudge while the user is busy in a room
+    if (installPill && !installPill.hidden){
+      installPill.hidden = true;
+      this._installPillSuppressed = true;
     }
   }
 
@@ -1197,8 +1213,9 @@ export class Controls {
     this._pendingHostGuestId = null;
     if (this._scanStopFn){ try { this._scanStopFn(); } catch {} this._scanStopFn = null; }
 
-    const chip = document.getElementById('roomChip');
-    if (chip) chip.hidden = true;
+    // _updateRoomChip handles all the cleanup now that _currentRoom is null,
+    // including unsuppressing the install pill if it was hidden.
+    this._updateRoomChip();
     this._restoreHostStage && this._restoreHostStage();
 
     // If overlay still open, return to root

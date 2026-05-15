@@ -58,6 +58,10 @@ html,body.app{height:100%;background:#000;color:var(--paper);overflow:hidden}
   box-shadow:0 0 0 0 rgba(216,255,58,.4);
   animation:roomChipPulse 2s ease-in-out infinite;
 }
+/* hidden attribute must override the inline-flex above */
+.room-chip[hidden],
+.party-pill[hidden],
+.install-pill[hidden]{display:none}
 .room-chip-code{
   font-family:'JetBrains Mono',monospace;font-weight:700;font-size:13px;
   letter-spacing:.18em;color:var(--paper);
@@ -164,10 +168,25 @@ html,body.app{height:100%;background:#000;color:var(--paper);overflow:hidden}
 
 @media (max-width:768px){
   .party-label{display:none}
-  .room-chip-code{font-size:11px}
+  .party-pill{margin-left:8px;padding:6px 8px}
+
+  /* Compact the room chip on phones — "FOLLOWING" is too long for narrow
+     screens; show shorter text and tighter spacing. */
+  .room-chip{margin-left:6px;padding:5px 7px;gap:5px}
+  .room-chip-code{font-size:10px;letter-spacing:.12em;max-width:80px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .room-chip-count{font-size:10px;padding:0 4px;min-width:14px}
+  .room-chip-leave{font-size:12px}
+
   .qr-stage{max-width:280px}
   .room-code-display #hostCodeBig{font-size:44px}
   .room-code-input{font-size:34px;padding:14px}
+
+  /* Push install pill way out of the control bar's wrap zone */
+  .install-pill{bottom:auto;top:60px;right:14px}
+}
+@media (max-width:480px){
+  /* On really small phones, "FOLLOWING" becomes "FOLLOW" via JS shorten */
+  .room-chip-code.short{letter-spacing:.08em}
 }
 
 /* MIC level meter — thin horizontal bar in the top bar */
