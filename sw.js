@@ -1,7 +1,7 @@
 /* lofy — service worker
    App-shell caching. Network-first for HTML, cache-first for static assets. */
 
-const VERSION = 'lofy-v1.2.0';
+const VERSION = 'lofy-v1.3.0';
 const CACHE_NAME = `lofy-cache-${VERSION}`;
 
 const APP_SHELL = [
@@ -28,6 +28,7 @@ const APP_SHELL = [
   './js/modes/spectrum.js',
   './js/modes/flash.js',
   './js/modes/particles.js',
+  './js/modes/waveform.js',
   './assets/favicon.svg',
   './assets/icon.svg',
   './assets/icon-192.png',

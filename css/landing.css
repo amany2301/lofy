@@ -170,8 +170,9 @@ h1 .l-live{
 .modes-head .count{font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:rgba(244,240,230,.5)}
 .modes-head .count span{color:var(--acid)}
 
-.modes-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:0;border:1px solid var(--hairline-soft)}
-@media (max-width:880px){ .modes-grid{grid-template-columns:1fr} }
+.modes-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:0;border:1px solid var(--hairline-soft)}
+@media (max-width:1180px){ .modes-grid{grid-template-columns:repeat(2,1fr)} }
+@media (max-width:560px){ .modes-grid{grid-template-columns:1fr} }
 .mode-card{
   padding:28px 24px;border-right:1px solid var(--hairline-soft);
   position:relative;overflow:hidden;background:var(--ink);

@@ -94,32 +94,51 @@ if (settings.hueRotate) viz.setHueRotate(true, settings.hueCycleSec || 45);
 if (settings.showFps) document.getElementById('fpsChip')?.classList.add('show');
 
 // Demo audio — play synthesised 128 BPM loop without mic permission
-async function playDemo(){
+async function playDemo(opts = {}){
+  const { silent = false } = opts;
   try {
-    showToast('Loading demo loop…', 'ok');
+    if (!silent) showToast('Loading demo loop…', 'ok');
     const buf = await getDemoBuffer();
     audio.useDemo(buf, 'Demo Loop · 128 BPM');
     idleHint.classList.remove('show');
     document.getElementById('trackbar')?.classList.add('show');
     const tn = document.getElementById('trackName');
     if (tn) tn.textContent = 'Demo Loop · 128 BPM';
-    // mark source pill so user knows what's playing
-    controls._setActivePill('srcGroup', 'src', 'file');
-    controls.activeSource = 'file';
-    showToast('Demo playing — switch to Mic / File / Tab anytime', 'ok');
+    controls._setActivePill('srcGroup', 'src', 'demo');
+    controls.activeSource = 'demo';
+    if (!silent) showToast('Demo playing — switch to Mic / File / Tab anytime', 'ok');
   } catch (err){
-    showToast('Demo failed: ' + (err.message || err), 'warn');
+    if (!silent) showToast('Demo failed: ' + (err.message || err), 'warn');
   }
 }
 
-// expose for controls.js / inline handlers
 window.__lofy_playDemo = playDemo;
 
-// First launch epilepsy warning
+// Detect iOS Safari — Web Audio is muted until user gesture
+function isIosAudioSuspended(){
+  const isIos = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+  return isIos && audio.ctx && audio.ctx.state === 'suspended';
+}
+function maybeShowIosUnmuteToast(){
+  if (isIosAudioSuspended()){
+    showToast('Tap the canvas to unmute audio', 'warn');
+    // Wire one-shot unmute on the next tap anywhere
+    const unmute = () => {
+      audio.resume();
+      window.removeEventListener('pointerdown', unmute, true);
+    };
+    window.addEventListener('pointerdown', unmute, true);
+  }
+}
+
+// First launch epilepsy warning — demo plays BEHIND the modal so the
+// canvas is already alive when the user clicks "Got it".
 function showFirstLaunch(){
   if (hasAckEpilepsy()) return;
   const fl = document.getElementById('firstLaunch');
   fl.style.display = 'flex';
+  // Auto-start the demo silently — first-impression magic
+  playDemo({ silent: true });
   document.getElementById('ackBtn').addEventListener('click', async () => {
     ackEpilepsy();
     fl.style.display = 'none';
@@ -127,17 +146,18 @@ function showFirstLaunch(){
       await audio.useMic();
       idleHint.classList.remove('show');
     } catch (err){
-      idleHint.classList.add('show');
-      showToast('Mic blocked — try File or Tab source', 'warn');
+      // Mic blocked — keep the demo playing
+      await playDemo({ silent: true });
+      showToast('Mic blocked — playing the demo instead', 'warn');
     }
   }, { once:true });
-  // Try-demo button inside the modal — no mic required
   const tryDemoModalBtn = document.getElementById('tryDemoModalBtn');
   if (tryDemoModalBtn){
     tryDemoModalBtn.addEventListener('click', async () => {
       ackEpilepsy();
       fl.style.display = 'none';
-      await playDemo();
+      // demo already playing — just update toast
+      showToast('Demo playing — switch to Mic / File / Tab anytime', 'ok');
     }, { once:true });
   }
 }
@@ -147,12 +167,15 @@ function autoStart(){
     showFirstLaunch();
     return;
   }
+  // Returning user: try mic first; if blocked or quiet, fall back to demo.
   audio.useMic()
-    .then(() => idleHint.classList.remove('show'))
-    .catch((err) => {
-      idleHint.classList.add('show');
-      // Subtle hint; not a full toast (the user has seen the page before)
-      showToast('Mic blocked — try File or Tab source', 'warn');
+    .then(() => {
+      idleHint.classList.remove('show');
+      maybeShowIosUnmuteToast();
+    })
+    .catch(async () => {
+      await playDemo({ silent: true });
+      showToast('Mic blocked — playing the demo instead', 'warn');
     });
 }
 
@@ -165,6 +188,15 @@ document.getElementById('tryDemoBtn')?.addEventListener('click', () => playDemo(
 
 // expose recorder toggle so controls.js keyboard binding (R) works
 controls._toggleRecording = () => recorder.toggle();
+// Disable Rec button if MediaRecorder + captureStream aren't supported
+if (!recorder.isSupported()){
+  const btnRec = document.getElementById('btnRec');
+  if (btnRec){
+    btnRec.setAttribute('aria-disabled', 'true');
+    btnRec.classList.add('disabled');
+    btnRec.title = 'Recording not supported on this browser';
+  }
+}
 
 // Sync mode + source pill highlight with restored / default state.
 // Replaces a buggy plain classList.add — that left Spectrum's hardcoded
@@ -214,3 +246,78 @@ controls.setPalette = (p) => { _origSetPal(p); saveLast(); };
 
 // Window unload
 window.addEventListener('beforeunload', saveLast);
+
+/* ============================================================
+   v1.3 additions — "What's new" chip, install prompt, SW updates,
+   first-time kbd hint
+   ============================================================ */
+
+const LOFY_VERSION = 'v1.3';
+const SEEN_VERSION_KEY = 'lofy_seen_version';
+const SEEN_KBD_HINT_KEY = 'lofy_seen_kbd_hint';
+
+// "What's new" chip — shown once per version after the user has acked the
+// epilepsy modal at least once.
+function maybeShowWhatsNew(){
+  if (!hasAckEpilepsy()) return;  // first-timers see the modal instead
+  try {
+    const seen = localStorage.getItem(SEEN_VERSION_KEY);
+    if (seen === LOFY_VERSION) return;
+  } catch {}
+  const chip = document.getElementById('whatsNew');
+  const close = document.getElementById('whatsNewClose');
+  if (!chip) return;
+  chip.hidden = false;
+  const dismiss = () => {
+    chip.hidden = true;
+    try { localStorage.setItem(SEEN_VERSION_KEY, LOFY_VERSION); } catch {}
+  };
+  close?.addEventListener('click', dismiss, { once:true });
+  // Auto-dismiss after 12 seconds
+  setTimeout(dismiss, 12000);
+}
+
+// Install PWA pill — captured from beforeinstallprompt
+let _deferredInstallPrompt = null;
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault();
+  _deferredInstallPrompt = e;
+  const pill = document.getElementById('installPill');
+  if (pill) pill.hidden = false;
+});
+document.getElementById('installBtn')?.addEventListener('click', async () => {
+  if (!_deferredInstallPrompt) return;
+  _deferredInstallPrompt.prompt();
+  const { outcome } = await _deferredInstallPrompt.userChoice;
+  _deferredInstallPrompt = null;
+  document.getElementById('installPill').hidden = true;
+  if (outcome === 'accepted') showToast('lofy installed · launch from your home screen', 'ok');
+});
+window.addEventListener('appinstalled', () => {
+  document.getElementById('installPill').hidden = true;
+});
+
+// Service worker — listen for controllerchange (new version activated)
+let _swUpdateNotified = false;
+if ('serviceWorker' in navigator){
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (_swUpdateNotified) return;
+    _swUpdateNotified = true;
+    showToast('Updated · reload to load the new version', 'ok');
+  });
+}
+
+// First-time keyboard hint
+function maybeShowKbdHint(){
+  if (!hasAckEpilepsy()) return;
+  try {
+    if (localStorage.getItem(SEEN_KBD_HINT_KEY)) return;
+  } catch {}
+  setTimeout(() => {
+    showToast('Press ? for shortcuts · F for fullscreen', 'ok');
+    try { localStorage.setItem(SEEN_KBD_HINT_KEY, '1'); } catch {}
+  }, 4500);
+}
+
+maybeShowWhatsNew();
+maybeShowKbdHint();

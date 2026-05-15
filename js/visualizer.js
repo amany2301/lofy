@@ -16,6 +16,7 @@
 import { drawSpectrum, resetSpectrum } from './modes/spectrum.js';
 import { drawFlash, onBeatFlash, resetFlash } from './modes/flash.js';
 import { drawParticles, onBeatParticles, resetParticles, setMaxParticles, getMaxParticles, tickParticles } from './modes/particles.js';
+import { drawWaveform, onBeatWaveform, resetWaveform } from './modes/waveform.js';
 import { BeatDetector } from './bpm.js';
 
 export class Visualizer {
@@ -74,7 +75,7 @@ export class Visualizer {
 
   setMode(m){
     this.mode = m;
-    resetSpectrum(); resetFlash(); resetParticles();
+    resetSpectrum(); resetFlash(); resetParticles(); resetWaveform();
     this.ctx.fillStyle = '#0a0a0d';
     this.ctx.fillRect(0, 0, this.W, this.H);
   }
@@ -245,8 +246,14 @@ export class Visualizer {
       this._lastBeatEnergy = lowEnergy;
       onBeatFlash(this.palette);
       onBeatParticles(this.W, this.H, this.palette, lowEnergy);
+      onBeatWaveform(this.palette);
       if (this.onBeat) this.onBeat(this.detector.bpm);
     }
+
+    // Waveform mode reads time-domain bytes; pre-fetch once per frame.
+    const timeData = (this.mode === 'waveform' && this.audio.getTimeData)
+      ? this.audio.getTimeData()
+      : null;
 
     const opts = {
       gain: 1,
@@ -261,11 +268,13 @@ export class Visualizer {
       party: this.party,
       partyStrobeMs: this.partyStrobeMs,
       partyStart: this._partyStart,
+      timeData,
       now,
     };
 
-    if (this.mode === 'spectrum') drawSpectrum(this.ctx, this.W, this.H, freq, this.palette, opts);
-    else if (this.mode === 'flash') drawFlash(this.ctx, this.W, this.H, this.palette, opts);
+    if      (this.mode === 'spectrum') drawSpectrum(this.ctx, this.W, this.H, freq, this.palette, opts);
+    else if (this.mode === 'flash')    drawFlash(this.ctx, this.W, this.H, this.palette, opts);
+    else if (this.mode === 'waveform') drawWaveform(this.ctx, this.W, this.H, this.palette, opts);
     else {
       tickParticles(this.W, this.H, this.palette, opts);
       drawParticles(this.ctx, this.W, this.H);

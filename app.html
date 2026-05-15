@@ -66,6 +66,15 @@
 
 <div class="fps-chip" id="fpsChip" aria-hidden="true"><b id="fpsVal">--</b> FPS</div>
 
+<div class="whats-new" id="whatsNew" hidden role="status">
+  <span>v1.3 · Waveform mode + auto-demo. <a href="https://github.com/amany2301/lofy/commits/main" target="_blank" rel="noopener">See changes</a></span>
+  <button class="whats-new-close" id="whatsNewClose" aria-label="Dismiss" type="button">✕</button>
+</div>
+
+<div class="install-pill" id="installPill" hidden>
+  <button id="installBtn" type="button">Install lofy</button>
+</div>
+
 <header class="topbar" id="topbar">
   <a href="./index.html" class="brand-mini" aria-label="lofy home"><span class="dot" aria-hidden="true"></span> lofy</a>
 
@@ -105,6 +114,7 @@
       <button class="pill active" data-src="mic"  type="button" aria-pressed="true">Mic</button>
       <button class="pill"        data-src="file" type="button" aria-pressed="false">File</button>
       <button class="pill"        data-src="tab"  type="button" aria-pressed="false">Tab</button>
+      <button class="pill"        data-src="demo" type="button" aria-pressed="false" title="Play the built-in 128 BPM demo loop">Demo</button>
     </div>
   </div>
 
@@ -114,6 +124,7 @@
       <button class="pill active" data-mode="spectrum"  type="button" aria-pressed="true">Spectrum</button>
       <button class="pill"        data-mode="flash"     type="button" aria-pressed="false">Flash</button>
       <button class="pill"        data-mode="particles" type="button" aria-pressed="false">Particles</button>
+      <button class="pill"        data-mode="waveform"  type="button" aria-pressed="false">Waveform</button>
     </div>
 
     <span class="lbl" style="margin-left:14px" id="lblPalette">Palette</span>
@@ -180,99 +191,115 @@
       <button class="close" data-close>Esc ✕</button>
     </div>
 
-    <div class="set-row">
-      <div>
-        <div class="lbl-md">Input Sensitivity</div>
-        <div class="lbl-sm">Audio gain into the analyser. Low = smooth, high = explosive.</div>
-      </div>
-      <div class="slider-wrap">
-        <input type="range" class="slider" id="setSens" min="1" max="10" value="5">
-        <span class="slider-val" id="setSensVal">5</span>
-      </div>
-    </div>
+    <fieldset class="set-group">
+      <legend>Audio</legend>
 
-    <div class="set-row">
-      <div>
-        <div class="lbl-md">Color Reactivity</div>
-        <div class="lbl-sm">How easily small tones trigger color changes. High = vocals, hats, every detail flips the color.</div>
+      <div class="set-row">
+        <div>
+          <div class="lbl-md">Input Sensitivity</div>
+          <div class="lbl-sm">How loud the input feels to lofy. Higher = quieter sounds register.</div>
+        </div>
+        <div class="slider-wrap">
+          <input type="range" class="slider" id="setSens" min="1" max="10" value="5">
+          <span class="slider-val" id="setSensVal">5</span>
+        </div>
       </div>
-      <div class="slider-wrap">
-        <input type="range" class="slider" id="setReact" min="1" max="10" value="7">
-        <span class="slider-val" id="setReactVal">7</span>
-      </div>
-    </div>
 
-    <div class="set-row">
-      <div>
-        <div class="lbl-md">Strobe Guard</div>
-        <div class="lbl-sm">Caps flash rate to 3Hz max. Safety feature for photosensitivity.</div>
+      <div class="set-row">
+        <div>
+          <div class="lbl-md">Color Reactivity</div>
+          <div class="lbl-sm">How easily small tones trigger color changes. High = vocals, hats, every detail flips the color.</div>
+        </div>
+        <div class="slider-wrap">
+          <input type="range" class="slider" id="setReact" min="1" max="10" value="7">
+          <span class="slider-val" id="setReactVal">7</span>
+        </div>
       </div>
-      <button class="toggle" id="tgStrobe" data-key="strobeGuard" role="switch" aria-checked="false" aria-label="Strobe Guard" type="button"></button>
-    </div>
+    </fieldset>
 
-    <div class="set-row">
-      <div>
-        <div class="lbl-md">Show BPM Badge</div>
-        <div class="lbl-sm">Toggles the live BPM overlay on canvas.</div>
-      </div>
-      <button class="toggle on" id="tgBpm" data-key="showBpm" role="switch" aria-checked="true" aria-label="Show BPM badge" type="button"></button>
-    </div>
+    <fieldset class="set-group">
+      <legend>Visuals</legend>
 
-    <div class="set-row">
-      <div>
-        <div class="lbl-md">Color Intensity</div>
-        <div class="lbl-sm">Controls max color brightness — useful for projector vs. TV.</div>
+      <div class="set-row">
+        <div>
+          <div class="lbl-md">Color Intensity</div>
+          <div class="lbl-sm">Controls max color brightness — useful for projector vs. TV.</div>
+        </div>
+        <div class="pill-group">
+          <button class="pill" data-int="low">Low</button>
+          <button class="pill active" data-int="med">Med</button>
+          <button class="pill" data-int="high">High</button>
+        </div>
       </div>
-      <div class="pill-group">
-        <button class="pill" data-int="low">Low</button>
-        <button class="pill active" data-int="med">Med</button>
-        <button class="pill" data-int="high">High</button>
-      </div>
-    </div>
 
-    <div class="set-row">
-      <div>
-        <div class="lbl-md">Auto-hide Controls</div>
-        <div class="lbl-sm">Hides the control bar after 3s of inactivity in fullscreen.</div>
+      <div class="set-row">
+        <div>
+          <div class="lbl-md">Auto Rotate Hue</div>
+          <div class="lbl-sm">Slowly cycles palette hues over time — set-and-forget for parties.</div>
+        </div>
+        <button class="toggle" id="tgHue" data-key="hueRotate" role="switch" aria-checked="false" aria-label="Auto rotate hue" type="button"></button>
       </div>
-      <button class="toggle on" id="tgAuto" data-key="autoHide" role="switch" aria-checked="true" aria-label="Auto-hide controls" type="button"></button>
-    </div>
 
-    <div class="set-row">
-      <div>
-        <div class="lbl-md">Keyboard Shortcuts</div>
-        <div class="lbl-sm">F · fullscreen · 1/2/3 · mode · M · source · ←/→ · sens · P · presets · ? · help · Esc · close</div>
+      <div class="set-row">
+        <div>
+          <div class="lbl-md">Hue Cycle Length</div>
+          <div class="lbl-sm">How long one full color rotation takes (15s = wild, 120s = subtle drift).</div>
+        </div>
+        <div class="slider-wrap">
+          <input type="range" class="slider" id="setHueCycle" min="15" max="120" step="5" value="45"
+                 aria-label="Hue rotation cycle length in seconds">
+          <span class="slider-val" id="setHueCycleVal" aria-hidden="true">45s</span>
+        </div>
       </div>
-      <button class="toggle on" id="tgKeys" data-key="shortcuts" role="switch" aria-checked="true" aria-label="Keyboard shortcuts enabled" type="button"></button>
-    </div>
+    </fieldset>
 
-    <div class="set-row">
-      <div>
-        <div class="lbl-md">Auto Rotate Hue</div>
-        <div class="lbl-sm">Slowly cycles palette hues over time — set-and-forget for parties.</div>
-      </div>
-      <button class="toggle" id="tgHue" data-key="hueRotate" role="switch" aria-checked="false" aria-label="Auto rotate hue" type="button"></button>
-    </div>
+    <fieldset class="set-group">
+      <legend>Safety &amp; Accessibility</legend>
 
-    <div class="set-row">
-      <div>
-        <div class="lbl-md">Hue Cycle Length</div>
-        <div class="lbl-sm">How long one full color rotation takes (15s = wild, 120s = subtle drift).</div>
+      <div class="set-row">
+        <div>
+          <div class="lbl-md">Strobe Guard</div>
+          <div class="lbl-sm">Caps flash rate to 3 Hz max — safety for photosensitivity. Recommended ON.</div>
+        </div>
+        <button class="toggle" id="tgStrobe" data-key="strobeGuard" role="switch" aria-checked="false" aria-label="Strobe Guard" type="button"></button>
       </div>
-      <div class="slider-wrap">
-        <input type="range" class="slider" id="setHueCycle" min="15" max="120" step="5" value="45"
-               aria-label="Hue rotation cycle length in seconds">
-        <span class="slider-val" id="setHueCycleVal" aria-hidden="true">45s</span>
-      </div>
-    </div>
 
-    <div class="set-row">
-      <div>
-        <div class="lbl-md">Show FPS</div>
-        <div class="lbl-sm">Tiny framerate chip top-right. Useful while tuning particle ceilings.</div>
+      <div class="set-row">
+        <div>
+          <div class="lbl-md">Keyboard Shortcuts</div>
+          <div class="lbl-sm">1/2/3/4 mode · F fullscreen · M source · ←/→ sens · T tap · P presets · R record · ? help · Esc close</div>
+        </div>
+        <button class="toggle on" id="tgKeys" data-key="shortcuts" role="switch" aria-checked="true" aria-label="Keyboard shortcuts enabled" type="button"></button>
       </div>
-      <button class="toggle" id="tgFps" data-key="showFps" role="switch" aria-checked="false" aria-label="Show FPS overlay" type="button"></button>
-    </div>
+    </fieldset>
+
+    <fieldset class="set-group">
+      <legend>Display</legend>
+
+      <div class="set-row">
+        <div>
+          <div class="lbl-md">Show BPM Badge</div>
+          <div class="lbl-sm">Toggles the live BPM overlay on canvas.</div>
+        </div>
+        <button class="toggle on" id="tgBpm" data-key="showBpm" role="switch" aria-checked="true" aria-label="Show BPM badge" type="button"></button>
+      </div>
+
+      <div class="set-row">
+        <div>
+          <div class="lbl-md">Show FPS</div>
+          <div class="lbl-sm">Tiny framerate chip top-right. Useful while tuning particle ceilings.</div>
+        </div>
+        <button class="toggle" id="tgFps" data-key="showFps" role="switch" aria-checked="false" aria-label="Show FPS overlay" type="button"></button>
+      </div>
+
+      <div class="set-row">
+        <div>
+          <div class="lbl-md">Auto-hide Controls</div>
+          <div class="lbl-sm">Hides the control bar after 3s of inactivity in fullscreen.</div>
+        </div>
+        <button class="toggle on" id="tgAuto" data-key="autoHide" role="switch" aria-checked="true" aria-label="Auto-hide controls" type="button"></button>
+      </div>
+    </fieldset>
   </div>
 </div>
 
@@ -290,6 +317,7 @@
           <dt><kbd>1</kbd></dt><dd>Spectrum</dd>
           <dt><kbd>2</kbd></dt><dd>Beat Flash</dd>
           <dt><kbd>3</kbd></dt><dd>Particle Storm</dd>
+          <dt><kbd>4</kbd></dt><dd>Waveform</dd>
         </dl>
       </div>
       <div class="kbd-group">

@@ -1,4 +1,6 @@
-/* lofy — preset & settings storage */
+/* lofy — preset & settings storage (v1.3 — quota-aware)
+   Every write returns a boolean so callers can surface a toast on
+   QuotaExceededError instead of silently dropping the user's data. */
 
 const K_SETTINGS = 'lofy_settings';
 const K_PRESETS  = 'lofy_presets';
@@ -7,8 +9,8 @@ const K_ACK      = 'lofy_epilepsy_ack';
 
 export const DEFAULT_SETTINGS = {
   sensitivity: 5,
-  reactivity: 7,        // color reactivity (1..10)
-  strobeGuard: true,    // default ON per PRD recommendation
+  reactivity: 7,
+  strobeGuard: true,
   showBpm: true,
   colorIntensity: 'med',
   autoHide: true,
@@ -22,13 +24,23 @@ function safeParse(s, fallback){
   try { return s ? JSON.parse(s) : fallback; } catch { return fallback; }
 }
 
+// Returns true on success; false if localStorage is unavailable or full.
+function safeSet(key, value){
+  try {
+    localStorage.setItem(key, value);
+    return true;
+  } catch (err){
+    return false;
+  }
+}
+
 export function loadSettings(){
   const s = safeParse(localStorage.getItem(K_SETTINGS), {});
   return { ...DEFAULT_SETTINGS, ...s };
 }
 
 export function saveSettings(s){
-  try { localStorage.setItem(K_SETTINGS, JSON.stringify(s)); } catch {}
+  return safeSet(K_SETTINGS, JSON.stringify(s));
 }
 
 export function loadPresets(){
@@ -38,30 +50,24 @@ export function loadPresets(){
 export function savePreset(preset){
   const arr = loadPresets();
   arr.push({ ...preset, id: 'u-' + Date.now(), createdAt: new Date().toISOString() });
-  try {
-    localStorage.setItem(K_PRESETS, JSON.stringify(arr));
-    return true;
-  } catch (err){
-    return false;       // quota exceeded
-  }
+  return safeSet(K_PRESETS, JSON.stringify(arr));
 }
 
 export function deletePreset(id){
   const arr = loadPresets().filter(p => p.id !== id);
-  try { localStorage.setItem(K_PRESETS, JSON.stringify(arr)); return true; }
-  catch { return false; }
+  return safeSet(K_PRESETS, JSON.stringify(arr));
 }
 
 export function loadLastState(){
   return safeParse(localStorage.getItem(K_LAST), null);
 }
 export function saveLastState(s){
-  try { localStorage.setItem(K_LAST, JSON.stringify(s)); } catch {}
+  return safeSet(K_LAST, JSON.stringify(s));
 }
 
 export function hasAckEpilepsy(){
-  return localStorage.getItem(K_ACK) === '1';
+  try { return localStorage.getItem(K_ACK) === '1'; } catch { return false; }
 }
 export function ackEpilepsy(){
-  try { localStorage.setItem(K_ACK, '1'); } catch {}
+  return safeSet(K_ACK, '1');
 }

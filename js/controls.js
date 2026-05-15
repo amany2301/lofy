@@ -96,10 +96,23 @@ export class Controls {
   }
 
   _wireSourcePills(){
+    // Disable Tab pill if browser lacks getDisplayMedia (Firefox/Safari mobile)
+    if (!navigator.mediaDevices?.getDisplayMedia){
+      const tabPill = document.querySelector('#srcGroup [data-src="tab"]');
+      if (tabPill){
+        tabPill.setAttribute('aria-disabled', 'true');
+        tabPill.classList.add('disabled');
+        tabPill.title = 'Tab capture not supported on this browser';
+      }
+    }
     document.getElementById('srcGroup').addEventListener('click', async (e) => {
       const btn = e.target.closest('.pill'); if (!btn) return;
+      if (btn.getAttribute('aria-disabled') === 'true'){
+        this.onToast && this.onToast(btn.title || 'Not supported on your browser', 'warn');
+        return;
+      }
       const src = btn.dataset.src;
-      if (src === this.activeSource && src !== 'file') return;
+      if (src === this.activeSource && src !== 'file' && src !== 'demo') return;
       try {
         if (src === 'mic'){
           await this.audio.useMic();
@@ -115,6 +128,14 @@ export class Controls {
           this.activeSource = 'tab';
           document.getElementById('trackbar').classList.remove('show');
           this.onSourceChange && this.onSourceChange('tab');
+        } else if (src === 'demo'){
+          // Delegated to app.js which knows how to fetch the cached demo buffer.
+          if (typeof window.__lofy_playDemo === 'function'){
+            await window.__lofy_playDemo();
+            this._setActivePill('srcGroup', 'src', 'demo');
+            this.activeSource = 'demo';
+            this.onSourceChange && this.onSourceChange('demo');
+          }
         }
       } catch (err){
         this.onError && this.onError(err.message || 'Failed to start audio source.');
@@ -303,7 +324,14 @@ export class Controls {
     document.getElementById('btnSettings')?.addEventListener('click', () => this._openOverlay('settingsOverlay'));
     document.getElementById('btnPresets')?.addEventListener('click', () => this._openOverlay('presetsOverlay'));
     document.getElementById('btnHelp')?.addEventListener('click', () => this._openOverlay('helpOverlay'));
-    document.getElementById('btnRec')?.addEventListener('click', () => this._toggleRecording && this._toggleRecording());
+    document.getElementById('btnRec')?.addEventListener('click', (e) => {
+      const btn = e.currentTarget;
+      if (btn?.getAttribute('aria-disabled') === 'true'){
+        this.onToast && this.onToast(btn.title || 'Recording not supported on this browser', 'warn');
+        return;
+      }
+      this._toggleRecording && this._toggleRecording();
+    });
 
     // Tap-tempo via BPM badge (click) + double-click to clear
     const bpmBadge = document.getElementById('bpmBadge');
@@ -570,7 +598,8 @@ export class Controls {
         if (t.hasAttribute('role')) t.setAttribute('aria-checked', newVal ? 'true' : 'false');
         t.classList.remove('pop'); void t.offsetWidth; t.classList.add('pop');
         this.settings[key] = newVal;
-        saveSettings(this.settings);
+        const ok = saveSettings(this.settings);
+        if (!ok) this.onToast && this.onToast('Storage full — settings may not persist', 'warn');
         if (key === 'strobeGuard') this.viz.setStrobeGuard(newVal);
         if (key === 'showBpm') document.querySelector('.bpm-badge').style.display = newVal ? '' : 'none';
         if (key === 'autoHide' && !newVal) this._showChrome();
@@ -600,9 +629,10 @@ export class Controls {
     else if (key === '1'){ this.setMode('spectrum'); }
     else if (key === '2'){ this.setMode('flash'); }
     else if (key === '3'){ this.setMode('particles'); }
+    else if (key === '4'){ this.setMode('waveform'); }
     else if (key === 'm' || key === 'M'){
       // cycle source
-      const order = ['mic','file','tab'];
+      const order = ['mic','file','tab','demo'];
       const next = order[(order.indexOf(this.activeSource) + 1) % order.length];
       document.querySelector(`[data-src="${next}"]`)?.click();
     }

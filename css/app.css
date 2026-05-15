@@ -366,6 +366,51 @@ html,body.app{height:100%;background:#000;color:var(--paper);overflow:hidden}
 .fps-chip.show{display:block}
 .fps-chip b{color:var(--acid);font-weight:400}
 
+/* "What's new" chip — appears once per version */
+.whats-new{
+  position:fixed;top:64px;left:50%;transform:translateX(-50%);
+  z-index:25;background:rgba(10,10,13,.85);backdrop-filter:blur(10px);
+  border:1px solid var(--magenta);
+  padding:8px 14px;font-size:11px;color:var(--paper);
+  display:flex;align-items:center;gap:14px;letter-spacing:.04em;
+  animation:slideIn .3s ease;
+}
+.whats-new a{color:var(--cyan);text-decoration:underline}
+.whats-new-close{
+  background:none;border:none;color:var(--paper-faint);cursor:pointer;
+  font-size:14px;line-height:1;padding:0 2px;
+}
+.whats-new-close:hover{color:var(--paper)}
+@keyframes slideIn{from{opacity:0;transform:translate(-50%,-8px)}to{opacity:1;transform:translate(-50%,0)}}
+
+/* Install PWA pill — appears when beforeinstallprompt is captured */
+.install-pill{
+  position:fixed;top:14px;right:280px;z-index:21;
+}
+.install-pill button{
+  background:var(--acid);color:var(--ink);
+  border:none;padding:8px 14px;font-size:11px;font-weight:700;
+  letter-spacing:.14em;text-transform:uppercase;cursor:pointer;
+  box-shadow:3px 3px 0 var(--magenta);
+}
+.install-pill button:hover{transform:translate(-1px,-1px);box-shadow:5px 5px 0 var(--magenta)}
+@media (max-width:768px){
+  .install-pill{right:16px;top:auto;bottom:90px}
+  .whats-new{top:60px;font-size:10px;padding:6px 10px}
+}
+
+/* Settings panel grouping */
+.set-group{border:none;padding:0;margin:0}
+.set-group legend{
+  font-family:'Bagel Fat One',serif;font-size:16px;
+  color:var(--paper);letter-spacing:-.01em;margin-top:24px;margin-bottom:4px;
+  padding:0 6px 0 0;
+}
+.set-group:first-of-type legend{margin-top:0}
+
+/* Disabled pill state */
+.pill.disabled{opacity:.4;cursor:not-allowed;text-decoration:line-through}
+
 /* BPM badge tap-mode visual */
 .bpm-badge{cursor:pointer;user-select:none}
 .bpm-badge.tapping{box-shadow:0 0 0 2px var(--acid)}

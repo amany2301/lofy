@@ -193,7 +193,31 @@ function miniParticles(id){
   }
   requestAnimationFrame(frame);
 }
-miniSpectrum('vis1'); miniFlash('vis2'); miniParticles('vis3');
+function miniWaveform(id){
+  const c=document.getElementById(id); if(!c) return;
+  const x=c.getContext('2d');
+  let W,H,DPR=Math.min(devicePixelRatio||1,2);
+  function size(){const r=c.getBoundingClientRect();W=r.width;H=r.height;c.width=W*DPR;c.height=H*DPR;x.setTransform(DPR,0,0,DPR,0,0)}
+  size(); window.addEventListener('resize',size);
+  const cols=['#ff2d87','#7a3cff','#00f0ff','#d8ff3a'];
+  function frame(t){
+    x.fillStyle='rgba(17,17,24,0.32)';x.fillRect(0,0,W,H);
+    const g=x.createLinearGradient(0,0,W,0);
+    cols.forEach((c,i)=>g.addColorStop(i/(cols.length-1),c));
+    x.strokeStyle=g;x.lineWidth=2.2;x.lineCap='round';
+    x.beginPath();
+    for(let xp=0;xp<=W;xp++){
+      const ph=t*0.004 + xp*0.045;
+      const v=Math.sin(ph)*0.4 + Math.sin(ph*2.13)*0.15 + Math.sin(ph*3.7)*0.08;
+      const y=H/2 + v*H*0.36;
+      if(xp===0) x.moveTo(xp,y); else x.lineTo(xp,y);
+    }
+    x.stroke();
+    requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+}
+miniSpectrum('vis1'); miniFlash('vis2'); miniParticles('vis3'); miniWaveform('vis4');
 
 /* ============================================================
    SCROLL — smooth section reveals + subtle hero parallax.
