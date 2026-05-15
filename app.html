@@ -73,6 +73,22 @@
 <header class="topbar" id="topbar">
   <a href="./index.html" class="brand-mini" aria-label="lofy home"><span class="dot" aria-hidden="true"></span> lofy</a>
 
+  <button class="party-pill" id="btnParty" type="button" aria-label="Party Room">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+      <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+      <circle cx="9" cy="7" r="4"/>
+      <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+      <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+    </svg>
+    <span class="party-label">Party</span>
+  </button>
+
+  <div class="room-chip" id="roomChip" hidden>
+    <span class="room-chip-code" id="roomChipCode">—</span>
+    <span class="room-chip-count" id="roomChipCount">0</span>
+    <button class="room-chip-leave" id="roomChipLeave" type="button" aria-label="Leave room">✕</button>
+  </div>
+
   <div class="mic-level" id="micLevel" aria-hidden="true" style="display:none">
     <span class="mic-level-label">MIC</span>
     <div class="mic-level-track"><div class="mic-level-bar" id="micLevelBar"></div></div>
@@ -295,6 +311,139 @@
         <button class="toggle on" id="tgAuto" data-key="autoHide" role="switch" aria-checked="true" aria-label="Auto-hide controls" type="button"></button>
       </div>
     </fieldset>
+  </div>
+</div>
+
+<!-- PARTY ROOM OVERLAY -->
+<div class="overlay" id="roomOverlay">
+  <div class="sheet" role="dialog" aria-labelledby="roomTitle" aria-modal="true">
+    <div class="sheet-head">
+      <h2 id="roomTitle">Party Room</h2>
+      <button class="close" data-close type="button">Esc ✕</button>
+    </div>
+
+    <!-- ROOT VIEW — pick Start or Join -->
+    <div class="room-view" data-view="root">
+      <p class="room-intro">Sync the visuals across every device in the room.<br>
+        Your device is the server — no accounts, no infra, zero cost.</p>
+      <div class="room-actions">
+        <button class="btn lg" id="roomStartBtn" type="button">
+          <strong>Start a Party Room</strong>
+          <span>You host — friends join your visuals</span>
+        </button>
+        <button class="btn lg ghost" id="roomJoinBtn" type="button">
+          <strong>Join a Party Room</strong>
+          <span>Scan a host's QR code or type a 4-letter code</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- HOST view — picks QR (in-person) or Code (remote) -->
+    <div class="room-view" data-view="host-pick" hidden>
+      <p class="room-intro">How will guests connect?</p>
+      <div class="room-actions">
+        <button class="btn lg" id="hostQrBtn" type="button">
+          <strong>QR code · in person</strong>
+          <span>Show a QR. Guests scan. Zero servers — pure peer-to-peer.</span>
+        </button>
+        <button class="btn lg ghost" id="hostCodeBtn" type="button">
+          <strong>4-letter code · remote</strong>
+          <span>Friends in another room type a code. Uses a free public broker.</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- HOST · QR — show offer, wait for guest's answer QR -->
+    <div class="room-view" data-view="host-qr" hidden>
+      <p class="room-intro" id="hostQrStep">1 · Have your friend scan this with the lofy app</p>
+      <div class="qr-stage">
+        <canvas id="hostQrCanvas" width="320" height="320"></canvas>
+      </div>
+      <div class="room-actions">
+        <button class="btn" id="hostQrScanBtn" type="button">Scan friend's response</button>
+        <button class="btn ghost" data-room-back type="button">Back</button>
+      </div>
+    </div>
+
+    <!-- HOST · Code — show code, wait passively for guests -->
+    <div class="room-view" data-view="host-code" hidden>
+      <p class="room-intro">Share this code — guests type it in to join.</p>
+      <div class="room-code-display">
+        <span id="hostCodeBig">— — — —</span>
+        <button class="btn ghost" id="hostCodeCopyBtn" type="button">Copy</button>
+        <button class="btn ghost" id="hostCodeShareBtn" type="button" hidden>Share</button>
+      </div>
+      <p class="room-hint" id="hostCodeStatus">Waiting for guests…</p>
+      <div class="room-actions">
+        <button class="btn ghost" data-room-back type="button">Back</button>
+      </div>
+    </div>
+
+    <!-- GUEST view — pick QR scan or code entry -->
+    <div class="room-view" data-view="guest-pick" hidden>
+      <p class="room-intro">How will you join?</p>
+      <div class="room-actions">
+        <button class="btn lg" id="guestScanBtn" type="button">
+          <strong>Scan a QR · in person</strong>
+          <span>Point your camera at the host's screen.</span>
+        </button>
+        <button class="btn lg ghost" id="guestCodeBtn" type="button">
+          <strong>Type a code · remote</strong>
+          <span>If you're not in the same room as the host.</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- GUEST · QR — scan host's QR -->
+    <div class="room-view" data-view="guest-qr" hidden>
+      <p class="room-intro" id="guestQrStep">Scan the host's QR code</p>
+      <div class="qr-stage">
+        <video id="guestScanVideo" playsinline muted></video>
+        <div class="qr-viewfinder" aria-hidden="true"></div>
+      </div>
+      <p class="room-hint" id="guestScanStatus"></p>
+      <div class="room-actions">
+        <button class="btn ghost" data-room-back type="button">Back</button>
+      </div>
+    </div>
+
+    <!-- GUEST · Show answer QR back to host -->
+    <div class="room-view" data-view="guest-answer" hidden>
+      <p class="room-intro">Step 2 · Have the host scan this</p>
+      <div class="qr-stage">
+        <canvas id="guestAnswerCanvas" width="320" height="320"></canvas>
+      </div>
+      <p class="room-hint" id="guestAnswerStatus">Waiting for host…</p>
+      <div class="room-actions">
+        <button class="btn ghost" data-room-back type="button">Back</button>
+      </div>
+    </div>
+
+    <!-- GUEST · Code entry -->
+    <div class="room-view" data-view="guest-code" hidden>
+      <p class="room-intro">Type the 4-letter code from the host's screen.</p>
+      <input type="text" class="room-code-input" id="guestCodeInput"
+             maxlength="4" autocapitalize="characters" inputmode="text"
+             autocomplete="off" spellcheck="false" placeholder="XYZW">
+      <p class="room-hint" id="guestCodeStatus"></p>
+      <div class="room-actions">
+        <button class="btn" id="guestCodeJoinBtn" type="button">Join</button>
+        <button class="btn ghost" data-room-back type="button">Back</button>
+      </div>
+    </div>
+
+    <!-- CONNECTED — host or guest is in a live room -->
+    <div class="room-view" data-view="connected" hidden>
+      <div class="room-connected">
+        <div class="room-connected-icon">●</div>
+        <h3 id="connectedTitle">Connected · Room XYZW</h3>
+        <p class="room-hint" id="connectedDetail">2 guests · audio stays on the host</p>
+      </div>
+      <div class="room-actions">
+        <button class="btn" data-close type="button">Done</button>
+        <button class="btn ghost" id="roomLeaveBtn" type="button">Leave room</button>
+      </div>
+    </div>
   </div>
 </div>
 

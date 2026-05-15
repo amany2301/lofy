@@ -4,6 +4,7 @@ import {
   loadSettings, saveSettings, loadPresets, savePreset, deletePreset,
 } from './presets.js';
 import { buildShareUrl, copyToClipboard } from './share.js';
+import { RoomHost, RoomGuest, generateRoomCode } from './sync.js';
 
 export class Controls {
   constructor({ audio, viz, onSourceChange, onError, onToast }){
@@ -324,6 +325,8 @@ export class Controls {
     document.getElementById('btnSettings')?.addEventListener('click', () => this._openOverlay('settingsOverlay'));
     document.getElementById('btnPresets')?.addEventListener('click', () => this._openOverlay('presetsOverlay'));
     document.getElementById('btnHelp')?.addEventListener('click', () => this._openOverlay('helpOverlay'));
+    document.getElementById('btnParty')?.addEventListener('click', () => this._openRoomSheet());
+    document.getElementById('roomChipLeave')?.addEventListener('click', () => this._leaveRoom());
     document.getElementById('btnRec')?.addEventListener('click', (e) => {
       const btn = e.currentTarget;
       if (btn?.getAttribute('aria-disabled') === 'true'){
@@ -706,6 +709,434 @@ export class Controls {
   }
   _showChrome(){
     document.body.classList.remove('idle');
+  }
+
+  // ─────────────────────── PARTY ROOMS (v2.0) ───────────────────────
+
+  _openRoomSheet(){
+    // If already in a room, jump straight to the connected view
+    if (this._currentRoom){
+      this._roomShowView('connected');
+      this._updateRoomConnectedView();
+    } else {
+      this._roomShowView('root');
+    }
+    this._wireRoomFlows();
+    this._openOverlay('roomOverlay');
+  }
+
+  _roomShowView(name){
+    document.querySelectorAll('#roomOverlay .room-view').forEach((v) => {
+      v.hidden = v.dataset.view !== name;
+    });
+  }
+
+  _wireRoomFlows(){
+    if (this._roomFlowsWired) return;
+    this._roomFlowsWired = true;
+
+    // Root view
+    document.getElementById('roomStartBtn')?.addEventListener('click', () => this._roomShowView('host-pick'));
+    document.getElementById('roomJoinBtn') ?.addEventListener('click', () => this._roomShowView('guest-pick'));
+
+    // Host picks signaling path
+    document.getElementById('hostQrBtn')   ?.addEventListener('click', () => this._hostStartQr());
+    document.getElementById('hostCodeBtn') ?.addEventListener('click', () => this._hostStartCode());
+
+    // Host QR scan-answer button
+    document.getElementById('hostQrScanBtn')?.addEventListener('click', () => this._hostScanAnswer());
+
+    // Host code copy + share
+    document.getElementById('hostCodeCopyBtn')?.addEventListener('click', () => this._hostCopyCode());
+    document.getElementById('hostCodeShareBtn')?.addEventListener('click', () => this._hostShareCode());
+
+    // Guest picks signaling path
+    document.getElementById('guestScanBtn')?.addEventListener('click', () => this._guestStartScan());
+    document.getElementById('guestCodeBtn')?.addEventListener('click', () => this._roomShowView('guest-code'));
+    document.getElementById('guestCodeJoinBtn')?.addEventListener('click', () => this._guestJoinCode());
+    document.getElementById('guestCodeInput')?.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') this._guestJoinCode();
+    });
+
+    // Connected view leave button
+    document.getElementById('roomLeaveBtn')?.addEventListener('click', () => this._leaveRoom());
+
+    // Back buttons inside any room-view
+    document.querySelectorAll('#roomOverlay [data-room-back]').forEach((btn) => {
+      btn.addEventListener('click', () => this._roomBack());
+    });
+
+    // Show Web Share API button on supported devices
+    if (navigator.share){
+      const shareBtn = document.getElementById('hostCodeShareBtn');
+      if (shareBtn) shareBtn.hidden = false;
+    }
+  }
+
+  _roomBack(){
+    // Cancel any in-flight scan / waiting
+    if (this._scanStopFn){ try { this._scanStopFn(); } catch {} this._scanStopFn = null; }
+    // If a tentative host/guest was created but not connected, clean it up
+    if (this._tentativeRoom){
+      try { this._tentativeRoom.close ? this._tentativeRoom.close() : this._tentativeRoom.leave(); } catch {}
+      this._tentativeRoom = null;
+    }
+    this._roomShowView('root');
+  }
+
+  // ─── HOST · QR path ───────────────────────────────────────────────
+
+  async _hostStartQr(){
+    try {
+      const { loadQrLibs, encodeSdpForQr, renderQrToCanvas } =
+        await import('./qr-signal.js');
+      await loadQrLibs();
+
+      const host = new RoomHost();
+      this._tentativeRoom = host;
+      this._wireHostEvents(host);
+
+      const { guestId, offerSdp } = await host.createOffer();
+      this._pendingHostGuestId = guestId;
+      const encoded = await encodeSdpForQr(offerSdp);
+
+      const canvas = document.getElementById('hostQrCanvas');
+      renderQrToCanvas(encoded, canvas, 320);
+      document.getElementById('hostQrStep').textContent =
+        '1 · Have your friend scan this with the lofy app';
+      this._roomShowView('host-qr');
+    } catch (err){
+      this.onToast && this.onToast('Could not start QR mode: ' + (err.message || err), 'warn');
+    }
+  }
+
+  async _hostScanAnswer(){
+    try {
+      const { startCameraScan, decodeSdpFromQr } = await import('./qr-signal.js');
+      this._roomShowView('host-qr');
+      document.getElementById('hostQrStep').textContent = '2 · Scan your friend\'s response';
+      // Replace the offer-QR canvas with a temporary scan view
+      // by stealing the qr-stage and inserting a video — done via swap
+      this._switchHostStageToScan();
+
+      const video = this._hostScanVideo;
+      this._scanStopFn = await startCameraScan({
+        videoEl: video,
+        onResult: async (text) => {
+          this._scanStopFn = null;
+          try {
+            const answerSdp = await decodeSdpFromQr(text);
+            await this._tentativeRoom.acceptAnswer(this._pendingHostGuestId, answerSdp);
+            this._restoreHostStage();
+            this._activateHostRoom(this._tentativeRoom);
+          } catch (err){
+            this.onToast && this.onToast('Bad QR — ' + (err.message || err), 'warn');
+            this._restoreHostStage();
+            this._roomShowView('host-qr');
+          }
+        },
+        onError: (err) => {
+          this.onToast && this.onToast('Camera: ' + (err.message || err), 'warn');
+          this._restoreHostStage();
+          this._roomShowView('host-pick');
+        },
+      });
+    } catch (err){
+      this.onToast && this.onToast('Scanner failed: ' + (err.message || err), 'warn');
+    }
+  }
+
+  _switchHostStageToScan(){
+    const stage = document.querySelector('#roomOverlay [data-view="host-qr"] .qr-stage');
+    if (!stage) return;
+    this._hostStageOriginal = stage.innerHTML;
+    stage.innerHTML = '<video id="hostScanVideo" playsinline muted></video><div class="qr-viewfinder" aria-hidden="true"></div>';
+    this._hostScanVideo = document.getElementById('hostScanVideo');
+  }
+  _restoreHostStage(){
+    if (this._hostStageOriginal == null) return;
+    const stage = document.querySelector('#roomOverlay [data-view="host-qr"] .qr-stage');
+    if (stage) stage.innerHTML = this._hostStageOriginal;
+    this._hostStageOriginal = null;
+    this._hostScanVideo = null;
+  }
+
+  // ─── HOST · Code path ─────────────────────────────────────────────
+
+  async _hostStartCode(){
+    try {
+      const { attachHostToBroker } = await import('./peer-signal.js');
+      const code = generateRoomCode();
+      const host = new RoomHost({ code });
+      this._tentativeRoom = host;
+      this._wireHostEvents(host);
+
+      document.getElementById('hostCodeBig').textContent = code;
+      document.getElementById('hostCodeStatus').textContent = 'Connecting to broker…';
+      this._roomShowView('host-code');
+
+      await attachHostToBroker(host, code);
+      document.getElementById('hostCodeStatus').textContent = 'Waiting for guests…';
+      // Once the first guest joins, the guestjoin event handler activates the room
+    } catch (err){
+      const el = document.getElementById('hostCodeStatus');
+      if (el){ el.textContent = err.message || String(err); el.classList.add('error'); }
+      this._tentativeRoom = null;
+    }
+  }
+
+  _hostCopyCode(){
+    const code = document.getElementById('hostCodeBig')?.textContent || '';
+    copyToClipboard(`Join my lofy Party Room — code: ${code} → lofy.vizleo.com`).then((ok) => {
+      this.onToast && this.onToast(ok ? 'Code copied with link' : 'Copy failed', ok ? 'ok' : 'warn');
+    });
+  }
+  _hostShareCode(){
+    if (!navigator.share) return;
+    const code = document.getElementById('hostCodeBig')?.textContent || '';
+    navigator.share({
+      title: 'lofy Party Room',
+      text: `Join my lofy Party Room — code ${code}`,
+      url: 'https://lofy.vizleo.com/app.html',
+    }).catch(() => {});
+  }
+
+  // ─── GUEST · QR path ──────────────────────────────────────────────
+
+  async _guestStartScan(){
+    try {
+      const { loadQrLibs, startCameraScan, decodeSdpFromQr, encodeSdpForQr, renderQrToCanvas } =
+        await import('./qr-signal.js');
+      await loadQrLibs();
+
+      this._roomShowView('guest-qr');
+      document.getElementById('guestScanStatus').textContent = 'Looking for QR…';
+
+      const video = document.getElementById('guestScanVideo');
+      this._scanStopFn = await startCameraScan({
+        videoEl: video,
+        onResult: async (text) => {
+          this._scanStopFn = null;
+          try {
+            const offerSdp = await decodeSdpFromQr(text);
+            const guest = new RoomGuest();
+            this._tentativeRoom = guest;
+            this._wireGuestEvents(guest);
+            const answerSdp = await guest.acceptOffer(offerSdp);
+            const encodedAnswer = await encodeSdpForQr(answerSdp);
+            renderQrToCanvas(encodedAnswer, document.getElementById('guestAnswerCanvas'), 320);
+            this._roomShowView('guest-answer');
+            // Wait for host to scan our answer — connection will fire 'connect'
+          } catch (err){
+            this.onToast && this.onToast('Couldn\'t parse QR: ' + (err.message || err), 'warn');
+            this._roomShowView('guest-pick');
+          }
+        },
+        onError: (err) => {
+          const el = document.getElementById('guestScanStatus');
+          if (el){ el.textContent = err.message || String(err); el.classList.add('error'); }
+        },
+      });
+    } catch (err){
+      this.onToast && this.onToast('Scanner failed: ' + (err.message || err), 'warn');
+    }
+  }
+
+  // ─── GUEST · Code path ────────────────────────────────────────────
+
+  async _guestJoinCode(){
+    const input = document.getElementById('guestCodeInput');
+    const status = document.getElementById('guestCodeStatus');
+    const raw = (input?.value || '').toUpperCase().trim();
+    if (raw.length !== 4){
+      if (status){ status.textContent = 'Enter the 4-letter code'; status.classList.add('error'); }
+      return;
+    }
+    try {
+      const { joinViaBroker } = await import('./peer-signal.js');
+      if (status){ status.textContent = 'Connecting…'; status.classList.remove('error'); }
+      const guest = new RoomGuest();
+      this._tentativeRoom = guest;
+      this._wireGuestEvents(guest);
+      await joinViaBroker(guest, raw);
+      // Connection fires 'connect' event → activates the room
+    } catch (err){
+      if (status){ status.textContent = err.message || String(err); status.classList.add('error'); }
+      this._tentativeRoom = null;
+    }
+  }
+
+  // ─── Event wiring for host / guest ───────────────────────────────
+
+  _wireHostEvents(host){
+    host.on('guestjoin', () => {
+      // First join activates the room (moves out of tentative state)
+      if (this._tentativeRoom === host && !this._currentRoom){
+        this._activateHostRoom(host);
+      } else {
+        this._updateRoomChip();
+        this.onToast && this.onToast('Guest joined · ' + host.guestCount + ' total', 'ok');
+      }
+    });
+    host.on('guestleave', () => {
+      this._updateRoomChip();
+    });
+    host.on('close', () => {
+      this._teardownRoom();
+    });
+  }
+
+  _wireGuestEvents(guest){
+    guest.on('connect', () => {
+      if (this._tentativeRoom === guest && !this._currentRoom){
+        this._activateGuestRoom(guest);
+      }
+    });
+    guest.on('state', (msg) => {
+      const { type, t, ...rest } = msg;
+      this.viz.followState(rest);
+    });
+    guest.on('beat', (msg) => {
+      this.viz.followBeat(msg);
+    });
+    guest.on('disconnect', (e) => {
+      this.onToast && this.onToast('Disconnected · ' + (e?.reason || 'unknown'), 'warn');
+      this._teardownRoom();
+    });
+  }
+
+  _activateHostRoom(host){
+    this._currentRoom = host;
+    this._roomKind = 'host';
+    this._tentativeRoom = null;
+
+    // Hijack viz.onBeat → also broadcast to guests
+    const origOnBeat = this.viz.onBeat;
+    this._origOnBeat = origOnBeat;
+    this.viz.onBeat = (bpm) => {
+      if (origOnBeat) try { origOnBeat(bpm); } catch {}
+      host.broadcastBeat({
+        bpm,
+        energy: this.viz.lastTotalEnergy || 0,
+        lowEnergy: this.viz._lastBeatEnergy || 0,
+      });
+    };
+
+    // Hijack setMode + setPalette + setReactivity to also broadcast
+    this._origSetMode = this.setMode.bind(this);
+    this._origSetPal  = this.setPalette.bind(this);
+    this.setMode = (m) => {
+      this._origSetMode(m);
+      host.broadcastState({ mode: m });
+    };
+    this.setPalette = (p) => {
+      this._origSetPal(p);
+      host.broadcastState({ mode: this.activeMode, palette: this.viz.palette });
+    };
+
+    // Send current state immediately for late joiners
+    host.broadcastState({
+      mode: this.activeMode,
+      palette: this.viz.palette,
+      react: this.settings.reactivity,
+    });
+
+    this._updateRoomChip();
+    this._roomShowView('connected');
+    this._updateRoomConnectedView();
+    this.onToast && this.onToast('Room ' + host.code + ' live', 'ok');
+  }
+
+  _activateGuestRoom(guest){
+    this._currentRoom = guest;
+    this._roomKind = 'guest';
+    this._tentativeRoom = null;
+
+    // Switch visualizer into follower mode
+    this.viz.setFollowerMode(true);
+
+    // Disable mode + source pills since the host drives them
+    document.querySelectorAll('#srcGroup .pill').forEach((p) => p.classList.add('disabled'));
+
+    this._updateRoomChip();
+    this._roomShowView('connected');
+    this._updateRoomConnectedView();
+    this.onToast && this.onToast('Joined room · following host', 'ok');
+  }
+
+  _updateRoomChip(){
+    const chip = document.getElementById('roomChip');
+    const codeEl = document.getElementById('roomChipCode');
+    const countEl = document.getElementById('roomChipCount');
+    if (!chip || !this._currentRoom){
+      if (chip) chip.hidden = true;
+      return;
+    }
+    chip.hidden = false;
+    if (this._roomKind === 'host'){
+      codeEl.textContent = this._currentRoom.code;
+      countEl.textContent = String(this._currentRoom.guestCount);
+      countEl.hidden = false;
+    } else {
+      codeEl.textContent = 'FOLLOWING';
+      countEl.hidden = true;
+    }
+  }
+
+  _updateRoomConnectedView(){
+    if (!this._currentRoom) return;
+    const titleEl = document.getElementById('connectedTitle');
+    const detailEl = document.getElementById('connectedDetail');
+    if (this._roomKind === 'host'){
+      titleEl.textContent = 'Live · Room ' + this._currentRoom.code;
+      detailEl.textContent = this._currentRoom.guestCount + ' guest' +
+        (this._currentRoom.guestCount === 1 ? '' : 's') + ' · audio stays on this device';
+    } else {
+      titleEl.textContent = 'Following the host';
+      detailEl.textContent = 'Visuals are driven by the room host · no local audio';
+    }
+  }
+
+  _leaveRoom(){
+    if (!this._currentRoom) {
+      this._teardownRoom();
+      return;
+    }
+    try {
+      if (this._roomKind === 'host') this._currentRoom.close();
+      else this._currentRoom.leave();
+    } catch {}
+    this._teardownRoom();
+  }
+
+  _teardownRoom(){
+    // Restore overridden viz callbacks / set methods
+    if (this._origOnBeat !== undefined){
+      this.viz.onBeat = this._origOnBeat;
+      this._origOnBeat = undefined;
+    }
+    if (this._origSetMode){ this.setMode = this._origSetMode; this._origSetMode = null; }
+    if (this._origSetPal) { this.setPalette = this._origSetPal;  this._origSetPal  = null; }
+
+    if (this._roomKind === 'guest'){
+      this.viz.setFollowerMode(false);
+      document.querySelectorAll('#srcGroup .pill').forEach((p) => p.classList.remove('disabled'));
+    }
+
+    this._currentRoom = null;
+    this._roomKind = null;
+    this._tentativeRoom = null;
+    this._pendingHostGuestId = null;
+    if (this._scanStopFn){ try { this._scanStopFn(); } catch {} this._scanStopFn = null; }
+
+    const chip = document.getElementById('roomChip');
+    if (chip) chip.hidden = true;
+    this._restoreHostStage && this._restoreHostStage();
+
+    // If overlay still open, return to root
+    if (document.getElementById('roomOverlay')?.classList.contains('show')){
+      this._roomShowView('root');
+    }
   }
 }
 
