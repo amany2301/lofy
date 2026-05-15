@@ -42,6 +42,15 @@ export class Visualizer {
     this.onBeat = null;
     this._lastBeatEnergy = 0;
     this._raf = 0;
+
+    // Party Rooms — guest follower mode
+    this.followerMode = false;
+    this._followTotalEnergy = 0;
+    this._followLowEnergy = 0;
+    this._followBpm = 0;
+    this._followLastBeatLocalT = 0;       // local performance.now() of last received beat
+    this._followFakeFreqData = null;       // synthetic Uint8Array for guest-side spectrum
+    this._followFakeTimeData = null;       // synthetic Uint8Array for guest-side waveform
     this._fpsLow = 0;
     this._lastFrameT = 0;
     this.totalEnergyEma = 0;           // smoothed loudness — for UI meter
@@ -79,6 +88,93 @@ export class Visualizer {
     this.ctx.fillStyle = '#0a0a0d';
     this.ctx.fillRect(0, 0, this.W, this.H);
   }
+
+  // ─── Party Rooms — follower mode ────────────────────────────────────
+  // Guests run the same render loop but skip local FFT analysis and
+  // instead consume beat/state events received from the host over the
+  // WebRTC data channel.
+
+  setFollowerMode(on){
+    this.followerMode = !!on;
+    if (on){
+      // Allocate fake FFT buffers once so spectrum / waveform have
+      // something plausible to draw between beats.
+      this._followFakeFreqData = new Uint8Array(1024);
+      this._followFakeTimeData = new Uint8Array(2048);
+    } else {
+      this._followFakeFreqData = null;
+      this._followFakeTimeData = null;
+      this._followTotalEnergy = 0;
+      this._followLowEnergy = 0;
+      this._followBpm = 0;
+    }
+  }
+
+  /** Host sent us a beat — fire the visual beat slam + bump energy. */
+  followBeat(payload){
+    if (!this.followerMode) return;
+    const { bpm, energy = 0, lowEnergy = 0 } = payload || {};
+    this._followBpm = bpm | 0;
+    this._followTotalEnergy = Math.max(this._followTotalEnergy, Math.min(1, energy));
+    this._followLowEnergy   = Math.max(this._followLowEnergy,   Math.min(1, lowEnergy));
+    this._followLastBeatLocalT = performance.now();
+    this._lastBeatEnergy = lowEnergy;
+    // Same triggers the local detector would have fired — keeps every
+    // mode reactive without needing audio.
+    onBeatFlash(this.palette);
+    onBeatParticles(this.W, this.H, this.palette, lowEnergy);
+    onBeatWaveform(this.palette);
+    if (this.onBeat) this.onBeat(this._followBpm);
+  }
+
+  /** Host sent us a state change — apply it to local state. */
+  followState(payload){
+    if (!this.followerMode) return;
+    if (payload.mode && payload.mode !== this.mode) this.setMode(payload.mode);
+    if (Array.isArray(payload.palette)) this.setPalette(payload.palette);
+    if (payload.react != null) this.setReactivity(payload.react);
+    // sens is a no-op for guests — they have no audio analyser to scale.
+  }
+
+  /** Fill the fake freq/time buffers with energy-driven random data so
+   *  Spectrum and Waveform modes have something to render on the guest. */
+  _synthesizeFakeData(now){
+    const total = this._followTotalEnergy;
+    const low   = this._followLowEnergy;
+
+    // Synthetic spectrum — low bins are loud right after a beat, then decay
+    const freq = this._followFakeFreqData;
+    for (let i = 0; i < freq.length; i++){
+      const t = i / freq.length;
+      // log-falloff so low end dominates, like real music
+      const base = total * (1 - t * 0.7);
+      // sub-band kick boost near beat
+      const kick = (t < 0.05 ? low * 0.8 : 0);
+      const wobble = Math.random() * 0.18 * base;
+      freq[i] = Math.min(255, (base + kick + wobble) * 255) | 0;
+    }
+
+    // Synthetic time-domain — sine stack pulsing with total energy
+    const tt = this._followFakeTimeData;
+    const phase = now * 0.002 * (1 + total * 0.4);
+    const bpm = Math.max(60, this._followBpm || 120);
+    const beatHz = bpm / 60;
+    for (let i = 0; i < tt.length; i++){
+      const ph = phase + i * 0.015;
+      const v = Math.sin(ph) * 0.45
+              + Math.sin(ph * 2.13 + total * 2) * 0.18
+              + Math.sin(ph * 3.7 * beatHz / 2) * 0.10;
+      tt[i] = 128 + (v * total * 80 | 0);
+    }
+  }
+
+  /** Decay the synthetic energy envelopes between beats so the visual
+   *  breathes naturally even when network silence happens. */
+  _decayFollowerEnergy(){
+    this._followTotalEnergy *= 0.94;
+    this._followLowEnergy   *= 0.92;
+  }
+  // ────────────────────────────────────────────────────────────────────
   setPalette(input){
     let colors, party = false, partyStrobeMs = 120;
     if (Array.isArray(input)){
@@ -182,6 +278,15 @@ export class Visualizer {
   }
 
   render(t){
+    const now = performance.now();
+
+    // ─── FOLLOWER MODE — no local audio, drive visuals from received events ───
+    if (this.followerMode){
+      this._renderFollower(t, now);
+      this._tickFps(t);
+      return;
+    }
+
     if (!this.audio.analyser){
       this.ctx.fillStyle = '#0a0a0d';
       this.ctx.fillRect(0, 0, this.W, this.H);
@@ -196,7 +301,6 @@ export class Visualizer {
       this.ctx.fillRect(0, 0, this.W, this.H);
       return;
     }
-    const now = performance.now();
     const sr = this.audio.ctx.sampleRate;
     const fftSize = this.audio.analyser.fftSize;
     const binHz = sr / fftSize;
@@ -289,7 +393,70 @@ export class Visualizer {
       this._bumpAlpha *= 0.78;
     }
 
-    // ---- FPS + dynamic particle ceiling ----
+    this._tickFps(t);
+  }
+
+  // ─── Render path for guests (follower mode) ───
+  _renderFollower(t, now){
+    // Decay envelopes for natural-feeling visuals between received beats
+    this._decayFollowerEnergy();
+    this._synthesizeFakeData(now);
+
+    const freq = this._followFakeFreqData;
+    const timeData = this._followFakeTimeData;
+
+    // Hue rotation works the same way for guests (palette-driven, not audio-driven)
+    if (this.hueRotate && this._basePalette){
+      const lastT = this._lastHueT || now;
+      const dt = now - lastT;
+      this._lastHueT = now;
+      const speed = 0.4 + Math.min(1.2, this._followTotalEnergy * 2.0);
+      this._hueRotatePhase += dt / (this.hueCycleSec * 1000) * 360 * speed;
+      this._hueRotatePhase %= 360;
+      this.palette = this._basePalette.map(hex => hueShift(hex, this._hueRotatePhase));
+    }
+
+    // Use the host's last reported BPM for the BPM badge animation
+    this.totalEnergyEma += (this._followTotalEnergy - this.totalEnergyEma)
+      * (this._followTotalEnergy > this.totalEnergyEma ? 0.35 : 0.08);
+    this.lastTotalEnergy = this._followTotalEnergy;
+
+    const opts = {
+      gain: 1,
+      strobeGuard: this.strobeGuard,
+      intensityScale: this._intensityScale(),
+      reactivity: this.reactivity,
+      lowEnergy: this._followLowEnergy,
+      totalEnergy: this._followTotalEnergy,
+      freqData: freq,
+      sampleRate: 44100,
+      fftSize: 2048,
+      party: this.party,
+      partyStrobeMs: this.partyStrobeMs,
+      partyStart: this._partyStart,
+      timeData,
+      now,
+    };
+
+    if      (this.mode === 'spectrum') drawSpectrum(this.ctx, this.W, this.H, freq, this.palette, opts);
+    else if (this.mode === 'flash')    drawFlash(this.ctx, this.W, this.H, this.palette, opts);
+    else if (this.mode === 'waveform') drawWaveform(this.ctx, this.W, this.H, this.palette, opts);
+    else {
+      tickParticles(this.W, this.H, this.palette, opts);
+      drawParticles(this.ctx, this.W, this.H);
+    }
+
+    if (this._bumpAlpha > 0.005){
+      this.ctx.fillStyle = this._bumpColor;
+      this.ctx.globalAlpha = this._bumpAlpha;
+      this.ctx.fillRect(0, 0, this.W, this.H);
+      this.ctx.globalAlpha = 1;
+      this._bumpAlpha *= 0.78;
+    }
+  }
+
+  // ─── FPS tracking + adaptive particle ceiling ───
+  _tickFps(t){
     if (this._lastFrameT){
       const dt = t - this._lastFrameT;
       if (dt > 0){
@@ -307,8 +474,6 @@ export class Visualizer {
       } else if (this._fpsLow > 0){
         this._fpsLow--;
       }
-      // Slow recovery: when FPS is healthy for a sustained period, bump
-      // the particle ceiling back up by 25 each cycle until 500.
       if (dt < 17){
         this._fpsHigh = (this._fpsHigh || 0) + 1;
         if (this._fpsHigh > 90){
