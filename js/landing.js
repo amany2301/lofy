@@ -115,10 +115,46 @@
     ctx.shadowBlur = 0; ctx.globalAlpha = 1;
   }
 
+  // Hero waveform — palette-gradient oscilloscope. Synthesises a wave from
+  // the same beat-driven phase that drives the spectrum/flash/particles, so
+  // it looks like the same "audio" is feeding it.
+  function drawWaveformHero(t){
+    ctx.fillStyle = 'rgba(10,10,13,0.28)';
+    ctx.fillRect(0, 0, W, H);
+    const grad = ctx.createLinearGradient(0, 0, W, 0);
+    PALETTE.forEach((c, i) => grad.addColorStop(i / (PALETTE.length - 1), c));
+    ctx.strokeStyle = grad;
+    ctx.lineWidth = 2.4 + Math.max(0, 1 - ((t - lastBeat) / (60000 / bpm))) * 3;
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    const midY = H / 2;
+    const amp = H * 0.32;
+    for (let x = 0; x <= W; x += 1){
+      const ph = t * 0.004 + x * 0.034;
+      const v = Math.sin(ph) * 0.42 + Math.sin(ph * 2.13) * 0.18 + Math.sin(ph * 3.7) * 0.08;
+      const y = midY + v * amp;
+      if (x === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+    // mirrored reflection
+    ctx.globalAlpha = 0.22;
+    ctx.lineWidth *= 0.6;
+    ctx.beginPath();
+    for (let x = 0; x <= W; x += 1){
+      const ph = t * 0.004 + x * 0.034;
+      const v = Math.sin(ph) * 0.42 + Math.sin(ph * 2.13) * 0.18 + Math.sin(ph * 3.7) * 0.08;
+      const y = midY - v * amp * 0.78 + H * 0.04;
+      if (x === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+    ctx.globalAlpha = 1;
+  }
+
   function render(t){
     tick(t);
     if (mode === 'spectrum') drawSpectrum();
     else if (mode === 'flash') drawFlash();
+    else if (mode === 'waveform') drawWaveformHero(t);
     else drawParticles();
     requestAnimationFrame(render);
   }

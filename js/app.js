@@ -248,8 +248,7 @@ controls.setPalette = (p) => { _origSetPal(p); saveLast(); };
 window.addEventListener('beforeunload', saveLast);
 
 /* ============================================================
-   v1.3 additions — "What's new" chip, install prompt, SW updates,
-   first-time kbd hint
+   v1.3 additions — install prompt, SW updates, first-time kbd hint
    ============================================================ */
 
 const SEEN_KBD_HINT_KEY = 'lofy_seen_kbd_hint';
