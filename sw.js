@@ -26,6 +26,7 @@ const APP_SHELL = [
   './js/demo-audio.js',
   './js/recorder.js',
   './js/sync.js',
+  './js/qr-signal.js',
   './js/modes/spectrum.js',
   './js/modes/flash.js',
   './js/modes/particles.js',
