@@ -23,7 +23,48 @@ html,body.app{height:100%;background:#000;color:var(--paper);overflow:hidden}
   padding:8px 14px;border:1px solid var(--hairline);
   display:flex;align-items:center;gap:10px;
 }
-.bpm-badge .bpm-dot{width:8px;height:8px;border-radius:50%;background:var(--magenta);box-shadow:0 0 10px var(--magenta);animation:pulse 1s ease-in-out infinite}
+/* The dot pulses at the detected/locked BPM via CSS custom property
+   --bpm-beat-ms, set by JS. Default fallback is 800ms (~75 BPM). */
+.bpm-badge .bpm-dot{
+  width:8px;height:8px;border-radius:50%;
+  background:var(--magenta);box-shadow:0 0 10px var(--magenta);
+  animation:bpmPulse var(--bpm-beat-ms, 800ms) ease-in-out infinite;
+}
+.bpm-badge.manual .bpm-dot{background:var(--acid);box-shadow:0 0 12px var(--acid)}
+@keyframes bpmPulse{
+  0%{transform:scale(1);opacity:1}
+  35%{transform:scale(1.45);opacity:.55}
+  100%{transform:scale(1);opacity:1}
+}
+
+/* MIC level meter — thin horizontal bar in the top bar */
+.mic-level{display:flex;align-items:center;gap:10px;padding:0 12px}
+.mic-level-label{font-size:9px;letter-spacing:.2em;text-transform:uppercase;color:var(--paper-faint)}
+.mic-level-track{
+  position:relative;width:140px;height:6px;
+  background:rgba(244,240,230,.08);border:1px solid var(--hairline-soft);overflow:hidden;
+}
+.mic-level-bar{
+  position:absolute;left:0;top:0;bottom:0;width:0;
+  background:var(--cyan);
+  transition:width .08s linear, background-color .2s ease;
+}
+@media (max-width:768px){ .mic-level{display:none!important} }
+
+/* Slider label tooltip — hover shows the description */
+.lbl-help{position:relative;cursor:help;border-bottom:1px dotted rgba(244,240,230,.3)}
+.lbl-help:hover::after{
+  content:attr(data-tip);
+  position:absolute;left:0;bottom:calc(100% + 8px);
+  background:var(--ink);color:var(--paper);
+  padding:8px 12px;font-size:11px;line-height:1.4;
+  letter-spacing:0;text-transform:none;
+  border:1px solid var(--magenta);
+  white-space:normal;width:220px;
+  z-index:100;pointer-events:none;
+  animation:tipFade .15s ease;
+}
+@keyframes tipFade{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}
 .bpm-badge .bpm-val{font-size:20px;font-weight:700;color:var(--paper);line-height:1}
 .bpm-badge .bpm-lbl{font-size:9px;letter-spacing:.2em;color:rgba(244,240,230,.5);text-transform:uppercase;margin-top:2px}
 

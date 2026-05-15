@@ -47,18 +47,24 @@ export function drawSpectrum(ctx, W, H, freqData, palette, opts){
 
     smoothed[i] += (v - smoothed[i]) * (v > smoothed[i] ? 0.55 : 0.22);
     if (smoothed[i] > peaks[i]) peaks[i] = smoothed[i];
-    peaks[i] = Math.max(0, peaks[i] - 0.006);
+    peaks[i] = Math.max(0, peaks[i] - 0.014);
 
     const h = smoothed[i] * H * 0.92;
     const x = i * bw;
 
-    // 4-stop palette gradient across the spectrum
-    const t = i / (BARS - 1);
+    // Use the full palette length when it has more than 4 stops (party
+    // palettes can have 12+). Falls back to a 4-stop split for small palettes.
     let col;
-    if (t < 0.33)      col = palette[0] || '#ff2d87';
-    else if (t < 0.66) col = palette[1] || '#7a3cff';
-    else if (t < 0.85) col = palette[2] || '#00f0ff';
-    else               col = palette[3] || palette[2] || '#d8ff3a';
+    if (palette.length > 4){
+      const t = i / (BARS - 1);
+      col = palette[Math.floor(t * palette.length) % palette.length] || palette[0];
+    } else {
+      const t = i / (BARS - 1);
+      if (t < 0.33)      col = palette[0] || '#ff2d87';
+      else if (t < 0.66) col = palette[1] || '#7a3cff';
+      else if (t < 0.85) col = palette[2] || '#00f0ff';
+      else               col = palette[3] || palette[2] || '#d8ff3a';
+    }
 
     ctx.fillStyle = col;
     ctx.shadowBlur = 16; ctx.shadowColor = col;

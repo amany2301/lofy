@@ -45,7 +45,7 @@ export function onBeatParticles(W, H, palette, energy){
 }
 
 // Per-band onset detection — fires colored bursts on each musical event
-function bandOnset(band, freq, binHz, reactivity, nowMs){
+function bandOnset(band, freq, binHz, reactivity, nowMs, strobeGuard){
   const a = Math.max(1, Math.floor(band.lo / binHz));
   const b = Math.min(freq.length - 1, Math.ceil(band.hi / binHz));
   let sum = 0, peak = 0;
@@ -62,7 +62,7 @@ function bandOnset(band, freq, binHz, reactivity, nowMs){
 
   const threshold = 1.5 - (reactivity - 1) / 9 * 0.45;
   const floor = 0.06 - (reactivity - 1) / 9 * 0.05;
-  const cooldown = 90;
+  const cooldown = strobeGuard ? 333 : 90;
   if (energy > floor && energy > avg * threshold && (nowMs - band.last) > cooldown){
     band.last = nowMs;
     return energy;
@@ -105,7 +105,7 @@ export function tickParticles(W, H, palette, opts){
 
   // ---- per-band onset bursts ----
   BANDS.forEach((band, i) => {
-    const e = bandOnset(band, freq, binHz, reactivity, now);
+    const e = bandOnset(band, freq, binHz, reactivity, now, opts.strobeGuard);
     if (e > 0){
       const color = palette[i % palette.length] || palette[0];
       const speed = 2 + e * 5;
@@ -120,22 +120,43 @@ export function drawParticles(ctx, W, H){
   ctx.fillStyle = 'rgba(10,10,13,0.34)';
   ctx.fillRect(0, 0, W, H);
 
-  for (let i = particles.length - 1; i >= 0; i--){
-    const p = particles[i];
-    p.x += p.vx; p.y += p.vy;
-    p.vx *= 0.986; p.vy *= 0.986;
-    p.life -= p.decay;
-    if (p.life <= 0){ particles.splice(i, 1); continue; }
-    ctx.globalAlpha = p.life;
-    ctx.fillStyle = p.color;
-    ctx.shadowBlur = 14; ctx.shadowColor = p.color;
-    ctx.beginPath();
-    ctx.arc(p.x, p.y, p.size * p.life, 0, Math.PI * 2);
-    ctx.fill();
+  // shadowBlur is the dominant cost at high particle counts on low-end
+  // GPUs — skip the glow when we have a lot of particles on screen.
+  const heavyGlow = particles.length < 280;
+  if (heavyGlow){
+    for (let i = particles.length - 1; i >= 0; i--){
+      const p = particles[i];
+      p.x += p.vx; p.y += p.vy;
+      p.vx *= 0.986; p.vy *= 0.986;
+      p.life -= p.decay;
+      if (p.life <= 0){ particles.splice(i, 1); continue; }
+      ctx.globalAlpha = p.life;
+      ctx.fillStyle = p.color;
+      ctx.shadowBlur = 14; ctx.shadowColor = p.color;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.size * p.life, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  } else {
+    // Cheap mode: no shadow, just filled circles
+    for (let i = particles.length - 1; i >= 0; i--){
+      const p = particles[i];
+      p.x += p.vx; p.y += p.vy;
+      p.vx *= 0.986; p.vy *= 0.986;
+      p.life -= p.decay;
+      if (p.life <= 0){ particles.splice(i, 1); continue; }
+      ctx.globalAlpha = p.life;
+      ctx.fillStyle = p.color;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.size * p.life, 0, Math.PI * 2);
+      ctx.fill();
+    }
   }
   ctx.shadowBlur = 0;
   ctx.globalAlpha = 1;
 }
+
+export function getMaxParticles(){ return maxParticles; }
 
 export function resetParticles(){
   particles = [];

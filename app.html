@@ -68,10 +68,16 @@
 
 <header class="topbar" id="topbar">
   <a href="./index.html" class="brand-mini" aria-label="lofy home"><span class="dot" aria-hidden="true"></span> lofy</a>
+
+  <div class="mic-level" id="micLevel" aria-hidden="true" style="display:none">
+    <span class="mic-level-label">MIC</span>
+    <div class="mic-level-track"><div class="mic-level-bar" id="micLevelBar"></div></div>
+  </div>
+
   <div class="bpm-badge bpm-live" id="bpmBadge" role="button" tabindex="0"
        title="Click to tap tempo. Double-click to clear manual BPM."
        aria-label="BPM badge — click to tap tempo">
-    <div class="bpm-dot" aria-hidden="true"></div>
+    <div class="bpm-dot" id="bpmDot" aria-hidden="true"></div>
     <div>
       <div class="bpm-val" id="bpmVal">--</div>
       <div class="bpm-lbl" id="bpmLbl">BPM · LIVE</div>
@@ -113,17 +119,21 @@
     <span class="lbl" style="margin-left:14px" id="lblPalette">Palette</span>
     <div class="swatch-row" id="swatchRow" role="group" aria-labelledby="lblPalette"></div>
 
-    <label class="lbl" style="margin-left:14px" for="sens">Sens</label>
+    <label class="lbl lbl-help" style="margin-left:14px" for="sens"
+           data-tip="How loud the input feels to lofy. Higher = quieter sounds register.">Sens</label>
     <div class="slider-wrap">
       <input type="range" class="slider" id="sens" min="1" max="10" value="5"
-             aria-label="Audio input sensitivity" title="Audio input gain">
+             aria-label="Audio input sensitivity"
+             title="How loud the input feels to lofy. Higher = quieter sounds register.">
       <span class="slider-val" id="sensVal" aria-hidden="true">5</span>
     </div>
 
-    <label class="lbl" style="margin-left:14px" for="react">React</label>
+    <label class="lbl lbl-help" style="margin-left:14px" for="react"
+           data-tip="How readily small changes flip the color. Higher = more flicker per phrase.">React</label>
     <div class="slider-wrap">
       <input type="range" class="slider" id="react" min="1" max="10" value="7"
-             aria-label="Color reactivity" title="Color reactivity — how easily tones change the color">
+             aria-label="Color reactivity"
+             title="How readily small changes flip the color. Higher = more flicker per phrase.">
       <span class="slider-val" id="reactVal" aria-hidden="true">7</span>
     </div>
   </div>

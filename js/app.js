@@ -42,6 +42,11 @@ audio.onPlayState = (playing) => {
 
 viz.onBeat = (bpm) => {
   if (bpm && bpmVal) bpmVal.textContent = bpm;
+  // Sync the metronome-dot pulse rate to the actual BPM
+  if (bpm){
+    const badge = document.getElementById('bpmBadge');
+    if (badge) badge.style.setProperty('--bpm-beat-ms', (60000 / bpm) + 'ms');
+  }
 };
 viz.onFps = (fps) => {
   const el = document.getElementById('fpsVal');

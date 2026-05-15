@@ -4,7 +4,7 @@
    Returns a regular AudioBuffer that any AudioContext can consume. */
 
 const BPM = 128;
-const BARS = 4;
+const BARS = 8;                  // longer loop — ~15 s — more variety on repeat
 const BEATS_PER_BAR = 4;
 const SAMPLE_RATE = 44100;
 
@@ -95,17 +95,21 @@ export async function getDemoBuffer(){
   master.connect(comp).connect(ctx.destination);
 
   const spb = secondsPerBeat();
-  const bassNotes = [33, 33, 36, 33];  // A1, A1, C2, A1 (per bar)
+  // Four-bar walking root pattern — rotates twice across the 8-bar loop.
+  const bassWalk = [33, 33, 36, 33, 31, 31, 36, 38];   // A, A, C, A, G, G, C, D
   for (let bar = 0; bar < BARS; bar++){
     const bar0 = bar * BEATS_PER_BAR * spb;
-    // Kick on every beat (4 on the floor)
-    for (let beat = 0; beat < BEATS_PER_BAR; beat++){
-      scheduleKick(ctx, master, bar0 + beat * spb);
+    const dropOut = (bar === 5);     // bar 6 (zero-indexed 5): build, no kick
+    // Kick on every beat (4 on the floor) — except the build-up bar
+    if (!dropOut){
+      for (let beat = 0; beat < BEATS_PER_BAR; beat++){
+        scheduleKick(ctx, master, bar0 + beat * spb);
+      }
     }
-    // Hats on offbeats (and 16th accents on bar 3 to give it some life)
+    // Hats on offbeats. Bars 2 and 6 get 16th-note accents for energy.
     for (let beat = 0; beat < BEATS_PER_BAR; beat++){
       scheduleHat(ctx, master, bar0 + beat * spb + spb * 0.5);
-      if (bar === 2){
+      if (bar === 2 || bar === 5){
         scheduleHat(ctx, master, bar0 + beat * spb + spb * 0.25, false);
         scheduleHat(ctx, master, bar0 + beat * spb + spb * 0.75, true);
       }
@@ -113,9 +117,10 @@ export async function getDemoBuffer(){
     // Snare on beats 2 and 4
     scheduleSnare(ctx, master, bar0 + 1 * spb);
     scheduleSnare(ctx, master, bar0 + 3 * spb);
-    // Bass on every beat (root walk)
+    // Bass on every beat, walking through the 8-note pattern
     for (let beat = 0; beat < BEATS_PER_BAR; beat++){
-      scheduleBass(ctx, master, bar0 + beat * spb, bassNotes[beat]);
+      const noteIx = (bar * BEATS_PER_BAR + beat) % bassWalk.length;
+      scheduleBass(ctx, master, bar0 + beat * spb, bassWalk[noteIx]);
     }
   }
 

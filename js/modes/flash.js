@@ -52,7 +52,7 @@ export function onBeatFlash(palette){
   flashAlpha = 1;
 }
 
-function detectBandOnset(band, freqData, binHz, reactivity, nowMs){
+function detectBandOnset(band, freqData, binHz, reactivity, nowMs, strobeGuard){
   const a = Math.max(1, Math.floor(band.lo / binHz));
   const b = Math.min(freqData.length - 1, Math.ceil(band.hi / binHz));
   let sum = 0, peak = 0;
@@ -67,16 +67,22 @@ function detectBandOnset(band, freqData, binHz, reactivity, nowMs){
   band.buf[band.ix] = energy;
   band.ix = (band.ix + 1) % band.buf.length;
 
-  // reactivity 1..10 → threshold 1.55 .. 1.05
   const threshold = 1.55 - (reactivity - 1) / 9 * 0.50;
-  const floor = 0.06 - (reactivity - 1) / 9 * 0.05;   // 0.06 .. 0.01
-  const cooldown = 80;
+  const floor = 0.06 - (reactivity - 1) / 9 * 0.05;
+  // Strobe guard caps onset rate to ≤ 3 Hz (333 ms cooldown).
+  // Without guard, allow ~12 Hz for energetic music.
+  const cooldown = strobeGuard ? 333 : 80;
   if (energy > floor && energy > avg * threshold && (nowMs - band.last) > cooldown){
     band.last = nowMs;
     return Math.min(1, energy * 1.4);
   }
   return 0;
 }
+
+// Track how long total energy has been below the silence threshold.
+// When the silence has lasted > 800 ms, party-mode auto-strobe pauses.
+let partySilenceStart = 0;
+let partyPausedAt = 0;     // saved curIx so we resume from the same color
 
 export function drawFlash(ctx, W, H, palette, opts){
   const freq = opts.freqData;
@@ -93,9 +99,25 @@ export function drawFlash(ctx, W, H, palette, opts){
   // • Normal palettes: curIx eases toward beatIx (one step per detected beat)
   // • Party palettes: curIx is driven directly by time so colors cycle
   //   through EVERY palette stop continuously, ~partyStrobeMs per color.
+  //   But: pauses when audio falls silent for > 800 ms (so the canvas
+  //   doesn't keep strobing colors with no music playing).
   if (opts.party && opts.partyStrobeMs > 0){
-    const elapsed = (opts.now || performance.now()) - (opts.partyStart || 0);
-    curIx = (elapsed / opts.partyStrobeMs) % Math.max(2, palette.length);
+    const now = opts.now || performance.now();
+    const silentNow = total < 0.04;
+    if (silentNow){
+      if (!partySilenceStart) partySilenceStart = now;
+    } else {
+      partySilenceStart = 0;
+    }
+    const paused = partySilenceStart && (now - partySilenceStart) > 800;
+    if (paused){
+      // hold last color
+      curIx = partyPausedAt || curIx;
+    } else {
+      const elapsed = now - (opts.partyStart || 0);
+      curIx = (elapsed / opts.partyStrobeMs) % Math.max(2, palette.length);
+      partyPausedAt = curIx;
+    }
   } else {
     const lerp = 0.06 + (reactivity / 10) * 0.18;
     curIx += (beatIx - curIx) * lerp;
@@ -141,7 +163,7 @@ export function drawFlash(ctx, W, H, palette, opts){
     const binHz = sr / fft;
     const now = performance.now();
     BANDS.forEach((band, i) => {
-      const fired = detectBandOnset(band, freq, binHz, reactivity, now);
+      const fired = detectBandOnset(band, freq, binHz, reactivity, now, opts.strobeGuard);
       if (fired > 0){
         band.alpha = fired;
         band.color = palette[(beatIx + i) % palette.length] || band.color;
@@ -176,6 +198,8 @@ export function resetFlash(){
   beatIx = 0;
   curIx = 0;
   totalEnv = 0;
+  partySilenceStart = 0;
+  partyPausedAt = 0;
   ambient = [];
   for (const b of BANDS){
     b.alpha = 0; b.last = 0; b.buf.fill(0); b.ix = 0;

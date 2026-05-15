@@ -32,6 +32,7 @@ export class Controls {
   init(){
     if (this._initialized) return;
     this._initialized = true;
+    this._startLevelMeter();
     this._wireSourcePills();
     this._wireModePills();
     this._wireSensitivity();
@@ -143,6 +144,36 @@ export class Controls {
     this.viz.setMode(m);
   }
 
+  // Brief canvas tint when the user changes a slider — instant feedback
+  // without waiting for the next beat.
+  _flashFeedback(){
+    if (!this.viz || !this.viz.bumpFeedback) return;
+    const color = (this.viz.palette && this.viz.palette[0]) || '#ffffff';
+    this.viz.bumpFeedback(color, 0.16);
+  }
+
+  // Tiny level-meter loop that paints a horizontal bar inside #micLevel.
+  // Updated by rAF; pulled from visualizer.totalEnergyEma.
+  _startLevelMeter(){
+    if (this._levelRaf) return;
+    const bar = document.getElementById('micLevelBar');
+    const wrap = document.getElementById('micLevel');
+    const loop = () => {
+      this._levelRaf = requestAnimationFrame(loop);
+      if (!bar || !wrap) return;
+      // Only show when source = mic
+      const show = this.activeSource === 'mic';
+      wrap.style.display = show ? 'flex' : 'none';
+      if (!show) return;
+      const v = Math.min(1, this.viz.totalEnergyEma || 0);
+      bar.style.width = (v * 100).toFixed(1) + '%';
+      bar.style.background = v < 0.05 ? 'var(--paper-faint)'
+                            : v < 0.4 ? 'var(--cyan)'
+                                       : 'var(--acid)';
+    };
+    this._levelRaf = requestAnimationFrame(loop);
+  }
+
   _wireSensitivity(){
     const slider = document.getElementById('sens');
     const val = document.getElementById('sensVal');
@@ -152,9 +183,9 @@ export class Controls {
       this.audio.setSensitivity(v);
       this.settings.sensitivity = v;
       saveSettings(this.settings);
-      // sync to settings panel
       document.getElementById('setSens').value = v;
       document.getElementById('setSensVal').textContent = v;
+      this._flashFeedback();
     });
     const setSens = document.getElementById('setSens');
     setSens.addEventListener('input', () => {
@@ -165,6 +196,7 @@ export class Controls {
       this.audio.setSensitivity(v);
       this.settings.sensitivity = v;
       saveSettings(this.settings);
+      this._flashFeedback();
     });
 
     // Reactivity (color responsiveness) — control-bar + settings-panel slider
@@ -176,6 +208,7 @@ export class Controls {
       this.viz.setReactivity(v);
       this.settings.reactivity = v;
       saveSettings(this.settings);
+      this._flashFeedback();
     };
     document.getElementById('react').addEventListener('input', e => applyReact(+e.target.value));
     document.getElementById('setReact').addEventListener('input', e => applyReact(+e.target.value));
@@ -316,9 +349,13 @@ export class Controls {
     if (bpm >= 40 && bpm <= 220){
       this.viz.setManualBpm(bpm);
       document.getElementById('bpmVal').textContent = bpm;
-      if (badge){ badge.classList.remove('tapping'); badge.classList.add('manual'); }
+      if (badge){
+        badge.classList.remove('tapping');
+        badge.classList.add('manual');
+        badge.style.setProperty('--bpm-beat-ms', (60000 / bpm) + 'ms');
+      }
       if (lbl) lbl.innerHTML = `<em>MANUAL</em> · ${bpm}`;
-      this.onToast && this.onToast(`Tempo locked at ${bpm} BPM`, 'ok');
+      this.onToast && this.onToast(`Tempo locked at ${bpm} BPM · use ← → to fine-tune`, 'ok');
     } else {
       if (badge) badge.classList.remove('tapping');
       if (lbl) lbl.textContent = 'BPM · LIVE';
@@ -332,6 +369,7 @@ export class Controls {
     const badge = document.getElementById('bpmBadge');
     const lbl = document.getElementById('bpmLbl');
     badge?.classList.remove('manual','tapping');
+    badge?.style.removeProperty('--bpm-beat-ms');
     if (lbl) lbl.textContent = 'BPM · LIVE';
     this.onToast && this.onToast('Auto BPM restored', 'ok');
   }
@@ -569,18 +607,41 @@ export class Controls {
       document.querySelector(`[data-src="${next}"]`)?.click();
     }
     else if (key === 'ArrowRight'){
-      const s = Math.min(10, this.settings.sensitivity + 1);
-      this.settings.sensitivity = s; saveSettings(this.settings);
-      this.audio.setSensitivity(s);
-      document.getElementById('sens').value = s;
-      document.getElementById('sensVal').textContent = s;
+      // When BPM is locked to manual, arrows nudge tempo by ±1; otherwise sens.
+      if (this.viz?.detector?.manualBpm){
+        const nb = Math.min(220, this.viz.detector.manualBpm + 1);
+        this.viz.setManualBpm(nb);
+        document.getElementById('bpmVal').textContent = nb;
+        const lbl = document.getElementById('bpmLbl');
+        if (lbl) lbl.innerHTML = `<em>MANUAL</em> · ${nb}`;
+        const badge = document.getElementById('bpmBadge');
+        if (badge) badge.style.setProperty('--bpm-beat-ms', (60000 / nb) + 'ms');
+      } else {
+        const s = Math.min(10, this.settings.sensitivity + 1);
+        this.settings.sensitivity = s; saveSettings(this.settings);
+        this.audio.setSensitivity(s);
+        document.getElementById('sens').value = s;
+        document.getElementById('sensVal').textContent = s;
+        this._flashFeedback();
+      }
     }
     else if (key === 'ArrowLeft'){
-      const s = Math.max(1, this.settings.sensitivity - 1);
-      this.settings.sensitivity = s; saveSettings(this.settings);
-      this.audio.setSensitivity(s);
-      document.getElementById('sens').value = s;
-      document.getElementById('sensVal').textContent = s;
+      if (this.viz?.detector?.manualBpm){
+        const nb = Math.max(40, this.viz.detector.manualBpm - 1);
+        this.viz.setManualBpm(nb);
+        document.getElementById('bpmVal').textContent = nb;
+        const lbl = document.getElementById('bpmLbl');
+        if (lbl) lbl.innerHTML = `<em>MANUAL</em> · ${nb}`;
+        const badge = document.getElementById('bpmBadge');
+        if (badge) badge.style.setProperty('--bpm-beat-ms', (60000 / nb) + 'ms');
+      } else {
+        const s = Math.max(1, this.settings.sensitivity - 1);
+        this.settings.sensitivity = s; saveSettings(this.settings);
+        this.audio.setSensitivity(s);
+        document.getElementById('sens').value = s;
+        document.getElementById('sensVal').textContent = s;
+        this._flashFeedback();
+      }
     }
     else if (key === 'p' || key === 'P'){ this._openOverlay('presetsOverlay'); }
     else if (key === '?'){ e.preventDefault(); this._openOverlay('helpOverlay'); }
