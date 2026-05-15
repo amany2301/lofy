@@ -251,6 +251,20 @@ window.addEventListener('beforeunload', () => {
   try { controls.cleanupRoomOnUnload && controls.cleanupRoomOnUnload(); } catch {}
 });
 
+// Auto-join: if the URL contains a `#join=<payload>` fragment, the user
+// arrived here by scanning a host's QR with their phone's native camera.
+// Skip straight into the guest flow.
+(async () => {
+  try {
+    const { extractJoinPayloadFromUrl } = await import('./qr-signal.js');
+    const payload = extractJoinPayloadFromUrl();
+    if (payload && controls.autoJoinFromPayload){
+      // Wait a beat so the first paint completes before opening the overlay
+      setTimeout(() => controls.autoJoinFromPayload(payload), 250);
+    }
+  } catch {}
+})();
+
 /* ============================================================
    v1.3 additions — install prompt, SW updates, first-time kbd hint
    ============================================================ */

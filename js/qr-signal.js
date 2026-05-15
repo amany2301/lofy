@@ -73,8 +73,12 @@ function _injectScript(src, isReady){
 
 /** gzip → base64. Browser-native via CompressionStream (Chrome 80+,
  *  Safari 16.4+, Firefox 113+). Falls back to plain base64 on older. */
-export async function encodeSdpForQr(sdp){
-  // Compress
+// Where the deep-link points — the app handles `#join=<payload>` in app.js.
+const LOFY_APP_URL = (location.origin || 'https://lofy.vizleo.com') + '/app.html';
+const JOIN_HASH    = '#join=';
+
+/** Encode an SDP into a "lofy1:" base64+gzip payload. */
+async function _toPayload(sdp){
   let compressed;
   if (typeof CompressionStream !== 'undefined'){
     const bytes = new TextEncoder().encode(sdp);
@@ -83,27 +87,20 @@ export async function encodeSdpForQr(sdp){
     writer.write(bytes); writer.close();
     compressed = new Uint8Array(await new Response(cs.readable).arrayBuffer());
   } else {
-    // No compression available — accept larger QR
     compressed = new TextEncoder().encode(sdp);
   }
-  // base64 — URL-safe so QR alphanumeric mode is denser
   let bin = '';
   for (let i = 0; i < compressed.length; i++) bin += String.fromCharCode(compressed[i]);
   const b64 = btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
-  // Tag with a tiny prefix so we can detect format mismatches
   return 'lofy1:' + b64;
 }
 
-export async function decodeSdpFromQr(text){
-  if (!text || !text.startsWith('lofy1:')) {
-    throw new Error('Not a lofy QR code');
-  }
-  let b64 = text.slice('lofy1:'.length).replace(/-/g, '+').replace(/_/g, '/');
+async function _fromPayload(payload){
+  let b64 = payload.slice('lofy1:'.length).replace(/-/g, '+').replace(/_/g, '/');
   while (b64.length % 4) b64 += '=';
   const bin = atob(b64);
   const bytes = new Uint8Array(bin.length);
   for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
-
   if (typeof DecompressionStream !== 'undefined'){
     const ds = new DecompressionStream('gzip');
     const writer = ds.writable.getWriter();
@@ -112,6 +109,47 @@ export async function decodeSdpFromQr(text){
     return new TextDecoder().decode(buf);
   }
   return new TextDecoder().decode(bytes);
+}
+
+/** Encode an SDP for a QR code. The host's OFFER is wrapped in a
+ *  deep-link URL so a guest can scan it with their phone's NATIVE camera
+ *  and have lofy open with the connection pre-loaded — no app install,
+ *  no instructions needed. Pass {asUrl: false} for an "in-app only"
+ *  payload (used for the guest's answer QR, since the host is already
+ *  inside lofy when scanning it). */
+export async function encodeSdpForQr(sdp, opts = {}){
+  const payload = await _toPayload(sdp);
+  return opts.asUrl === false ? payload : (LOFY_APP_URL + JOIN_HASH + payload);
+}
+
+/** Decode a QR scan. Accepts BOTH formats:
+ *    - raw  : "lofy1:<base64>"
+ *    - url  : "https://lofy.vizleo.com/app.html#join=lofy1:<base64>"
+ *  Returns the original SDP. */
+export async function decodeSdpFromQr(text){
+  if (!text) throw new Error('Empty QR');
+  let payload = text;
+  // Try URL form first
+  const idx = text.indexOf(JOIN_HASH);
+  if (idx !== -1) payload = text.slice(idx + JOIN_HASH.length);
+  // Strip any extra query/fragment chars
+  payload = payload.split(/[&?]/)[0];
+  if (!payload.startsWith('lofy1:')) throw new Error('Not a lofy QR code');
+  return _fromPayload(payload);
+}
+
+/** Pull the `#join=...` payload from a URL hash on app boot. */
+export function extractJoinPayloadFromUrl(){
+  const idx = (location.hash || '').indexOf(JOIN_HASH);
+  if (idx === -1) return null;
+  const payload = location.hash.slice(idx + JOIN_HASH.length).split(/[&?]/)[0];
+  return payload.startsWith('lofy1:') ? payload : null;
+}
+
+/** Decode a payload string (already in the "lofy1:..." form) into an SDP. */
+export async function decodePayloadToSdp(payload){
+  if (!payload || !payload.startsWith('lofy1:')) throw new Error('Bad payload');
+  return _fromPayload(payload);
 }
 
 // ─────────────────────── QR rendering ───────────────────────

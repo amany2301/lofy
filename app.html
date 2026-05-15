@@ -355,10 +355,11 @@
 
     <!-- HOST · QR — show offer, wait for guest's answer QR -->
     <div class="room-view" data-view="host-qr" hidden>
-      <p class="room-intro" id="hostQrStep">1 · Have your friend scan this with the lofy app</p>
+      <p class="room-intro" id="hostQrStep">1 · Friend opens their phone camera and points it at this QR</p>
       <div class="qr-stage">
         <canvas id="hostQrCanvas" width="320" height="320"></canvas>
       </div>
+      <p class="room-hint">Any phone camera works — they don't need lofy open first. The QR is a link that auto-opens lofy on their phone.</p>
       <div class="room-actions">
         <button class="btn" id="hostQrScanBtn" type="button">Scan friend's response</button>
         <button class="btn ghost" data-room-back type="button">Back</button>

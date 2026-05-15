@@ -810,12 +810,14 @@ export class Controls {
 
       const { guestId, offerSdp } = await host.createOffer();
       this._pendingHostGuestId = guestId;
-      const encoded = await encodeSdpForQr(offerSdp);
+      // URL-form QR — any phone's native camera will open lofy on the
+      // guest's device with the connection pre-loaded. No instructions needed.
+      const encoded = await encodeSdpForQr(offerSdp /* default: asUrl: true */);
 
       const canvas = document.getElementById('hostQrCanvas');
       renderQrToCanvas(encoded, canvas, 320);
       document.getElementById('hostQrStep').textContent =
-        '1 · Have your friend scan this with the lofy app';
+        '1 · Friend opens their phone camera and points it at this QR';
       this._roomShowView('host-qr');
     } catch (err){
       this.onToast && this.onToast('Could not start QR mode: ' + (err.message || err), 'warn');
@@ -935,7 +937,9 @@ export class Controls {
             this._tentativeRoom = guest;
             this._wireGuestEvents(guest);
             const answerSdp = await guest.acceptOffer(offerSdp);
-            const encodedAnswer = await encodeSdpForQr(answerSdp);
+            // Raw payload (no URL wrapping) — the host is already inside
+            // lofy when scanning this back; saves QR density.
+            const encodedAnswer = await encodeSdpForQr(answerSdp, { asUrl: false });
             renderQrToCanvas(encodedAnswer, document.getElementById('guestAnswerCanvas'), 320);
             this._roomShowView('guest-answer');
             // Wait for host to scan our answer — connection will fire 'connect'
@@ -1135,6 +1139,42 @@ export class Controls {
       if (this._roomKind === 'host') this._currentRoom.close();
       else this._currentRoom.leave();
     } catch {}
+  }
+
+  /** Auto-join flow triggered by a `#join=lofy1:…` URL hash on app boot.
+   *  The user scanned a host's QR with their phone's native camera, which
+   *  opened lofy with the connection payload pre-loaded. We jump straight
+   *  to the guest-answer view so they only have to show their phone screen
+   *  back to the host. */
+  async autoJoinFromPayload(payload){
+    try {
+      const {
+        loadQrLibs, decodePayloadToSdp, encodeSdpForQr, renderQrToCanvas,
+      } = await import('./qr-signal.js');
+      await loadQrLibs();
+
+      this._wireRoomFlows();
+      this._openOverlay('roomOverlay');
+      this._roomShowView('guest-answer');
+      const status = document.getElementById('guestAnswerStatus');
+      if (status){ status.textContent = 'Generating your response…'; status.classList.remove('error'); }
+
+      const offerSdp = await decodePayloadToSdp(payload);
+      const guest = new RoomGuest();
+      this._tentativeRoom = guest;
+      this._wireGuestEvents(guest);
+
+      const answerSdp = await guest.acceptOffer(offerSdp);
+      const encodedAnswer = await encodeSdpForQr(answerSdp, { asUrl: false });
+      renderQrToCanvas(encodedAnswer, document.getElementById('guestAnswerCanvas'), 320);
+      if (status) status.textContent = 'Show this to the host — they\'ll scan it from your screen';
+
+      // Clear the hash so refreshes don't re-trigger this flow
+      try { history.replaceState(null, '', location.pathname + location.search); } catch {}
+    } catch (err){
+      this.onToast && this.onToast('Couldn\'t auto-join: ' + (err.message || err), 'warn');
+      this._roomShowView('guest-pick');
+    }
   }
 
   _teardownRoom(){

@@ -1,7 +1,7 @@
 /* lofy — service worker
    App-shell caching. Network-first for HTML, cache-first for static assets. */
 
-const VERSION = 'lofy-v2.0.0';
+const VERSION = 'lofy-v2.0.1';
 const CACHE_NAME = `lofy-cache-${VERSION}`;
 
 const APP_SHELL = [
