@@ -544,6 +544,9 @@ html,body.app{height:100%;background:#000;color:var(--paper);overflow:hidden}
 
 /* Disabled pill state */
 .pill.disabled{opacity:.4;cursor:not-allowed;text-decoration:line-through}
+/* Disabled swatch / swatch-add — host-locked in guest follower mode */
+.swatch.disabled, .swatch-add.disabled{opacity:.35;cursor:not-allowed;pointer-events:auto}
+.swatch.disabled:hover, .swatch-add.disabled:hover{transform:none}
 
 /* BPM badge tap-mode visual */
 .bpm-badge{cursor:pointer;user-select:none}

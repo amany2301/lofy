@@ -160,6 +160,11 @@ export class Controls {
   _wireModePills(){
     document.getElementById('modeGroup').addEventListener('click', (e) => {
       const btn = e.target.closest('.pill'); if (!btn) return;
+      // In guest mode, host drives the mode — locking prevents drift.
+      if (this._roomKind === 'guest'){
+        this.onToast && this.onToast('Following host — only the room owner picks the mode', 'warn');
+        return;
+      }
       const m = btn.dataset.mode;
       this.setMode(m);
     });
@@ -278,6 +283,10 @@ export class Controls {
     if (!row.dataset.delegated){
       row.dataset.delegated = '1';
       row.addEventListener('click', (e) => {
+        if (this._roomKind === 'guest'){
+          this.onToast && this.onToast('Following host — only the room owner picks the palette', 'warn');
+          return;
+        }
         const swatch = e.target.closest('.swatch');
         if (swatch){
           const pid = swatch.dataset.pid;
@@ -1042,6 +1051,19 @@ export class Controls {
     guest.on('state', (msg) => {
       const { type, t, ...rest } = msg;
       this.viz.followState(rest);
+      // Mirror host's mode on the (disabled) pill row so the guest can
+      // SEE what mode the host has selected.
+      if (rest.mode && rest.mode !== this.activeMode){
+        this.activeMode = rest.mode;
+        this._setActivePill('modeGroup', 'mode', rest.mode);
+      }
+      // Clear any local palette swatch highlight — guest's palette comes
+      // from the host, not from a swatch click.
+      if (Array.isArray(rest.palette)){
+        document.querySelectorAll('#swatchRow .swatch.active')
+          .forEach((s) => s.classList.remove('active'));
+        this.activePaletteId = 'host';
+      }
     });
     guest.on('beat', (msg) => {
       this.viz.followBeat(msg);
@@ -1107,8 +1129,12 @@ export class Controls {
     // Switch visualizer into follower mode
     this.viz.setFollowerMode(true);
 
-    // Disable mode + source pills since the host drives them
+    // Lock the host-driven controls visually: source pills, mode pills,
+    // palette swatches all become non-interactive (toast on click).
     document.querySelectorAll('#srcGroup .pill').forEach((p) => p.classList.add('disabled'));
+    document.querySelectorAll('#modeGroup .pill').forEach((p) => p.classList.add('disabled'));
+    document.querySelectorAll('#swatchRow .swatch, #swatchRow .swatch-add')
+      .forEach((s) => s.classList.add('disabled'));
 
     // Disable Sens / React sliders — they call audio/viz methods that
     // are no-ops in followerMode, and the visible knob looks active.
@@ -1264,6 +1290,9 @@ export class Controls {
     if (this._roomKind === 'guest'){
       this.viz.setFollowerMode(false);
       document.querySelectorAll('#srcGroup .pill').forEach((p) => p.classList.remove('disabled'));
+      document.querySelectorAll('#modeGroup .pill').forEach((p) => p.classList.remove('disabled'));
+      document.querySelectorAll('#swatchRow .swatch, #swatchRow .swatch-add')
+        .forEach((s) => s.classList.remove('disabled'));
       // Re-enable the Sens / React sliders that we greyed out on join
       ['sens','react','setSens','setReact'].forEach((id) => {
         const el = document.getElementById(id);
