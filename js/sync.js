@@ -395,10 +395,12 @@ export class RoomGuest {
       this._handleHostMessage(msg);
     };
     channel.onclose = () => {
+      if (this._closed) return;
       this._connected = false;
       this._em.emit('disconnect', { reason: 'channel-closed' });
     };
     channel.onerror = () => {
+      if (this._closed) return;
       this._em.emit('disconnect', { reason: 'channel-error' });
     };
   }

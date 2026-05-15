@@ -108,6 +108,11 @@ export class Controls {
     }
     document.getElementById('srcGroup').addEventListener('click', async (e) => {
       const btn = e.target.closest('.pill'); if (!btn) return;
+      // In guest follower mode, audio source is driven by the host.
+      if (this._roomKind === 'guest'){
+        this.onToast && this.onToast('You\'re following the host — audio source is locked', 'warn');
+        return;
+      }
       if (btn.getAttribute('aria-disabled') === 'true'){
         this.onToast && this.onToast(btn.title || 'Not supported on your browser', 'warn');
         return;
@@ -464,6 +469,13 @@ export class Controls {
     if (this._lastFocusedBeforeOverlay){
       try { this._lastFocusedBeforeOverlay.focus(); } catch {}
       this._lastFocusedBeforeOverlay = null;
+    }
+    // Cancel any in-flight camera scan + tentative WebRTC handshake
+    if (this._scanStopFn){ try { this._scanStopFn(); } catch {} this._scanStopFn = null; }
+    this._restoreHostStage && this._restoreHostStage();
+    if (this._tentativeRoom && !this._currentRoom){
+      try { this._tentativeRoom.close ? this._tentativeRoom.close() : this._tentativeRoom.leave(); } catch {}
+      this._tentativeRoom = null;
     }
   }
 
@@ -1102,11 +1114,27 @@ export class Controls {
       this._teardownRoom();
       return;
     }
+    const kind = this._roomKind;
+    const code = this._currentRoom.code;
+    try {
+      if (kind === 'host') this._currentRoom.close();
+      else this._currentRoom.leave();
+    } catch {}
+    this._teardownRoom();
+    this.onToast && this.onToast(
+      kind === 'host' ? 'Closed room ' + code : 'Left the room',
+      'ok',
+    );
+  }
+
+  /** Called from app.js on window beforeunload — ensures we don't leave
+   *  ghost guests on the host's roster or a stale peer at the broker. */
+  cleanupRoomOnUnload(){
+    if (!this._currentRoom) return;
     try {
       if (this._roomKind === 'host') this._currentRoom.close();
       else this._currentRoom.leave();
     } catch {}
-    this._teardownRoom();
   }
 
   _teardownRoom(){

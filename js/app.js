@@ -244,8 +244,12 @@ controls.setMode = (m) => { _origSetMode(m); saveLast(); };
 const _origSetPal = controls.setPalette.bind(controls);
 controls.setPalette = (p) => { _origSetPal(p); saveLast(); };
 
-// Window unload
-window.addEventListener('beforeunload', saveLast);
+// Window unload — save state + cleanly leave any active Party Room so
+// the host's roster / PeerJS broker don't keep a ghost connection.
+window.addEventListener('beforeunload', () => {
+  saveLast();
+  try { controls.cleanupRoomOnUnload && controls.cleanupRoomOnUnload(); } catch {}
+});
 
 /* ============================================================
    v1.3 additions — install prompt, SW updates, first-time kbd hint
