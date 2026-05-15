@@ -252,30 +252,7 @@ window.addEventListener('beforeunload', saveLast);
    first-time kbd hint
    ============================================================ */
 
-const LOFY_VERSION = 'v1.3';
-const SEEN_VERSION_KEY = 'lofy_seen_version';
 const SEEN_KBD_HINT_KEY = 'lofy_seen_kbd_hint';
-
-// "What's new" chip — shown once per version after the user has acked the
-// epilepsy modal at least once.
-function maybeShowWhatsNew(){
-  if (!hasAckEpilepsy()) return;  // first-timers see the modal instead
-  try {
-    const seen = localStorage.getItem(SEEN_VERSION_KEY);
-    if (seen === LOFY_VERSION) return;
-  } catch {}
-  const chip = document.getElementById('whatsNew');
-  const close = document.getElementById('whatsNewClose');
-  if (!chip) return;
-  chip.hidden = false;
-  const dismiss = () => {
-    chip.hidden = true;
-    try { localStorage.setItem(SEEN_VERSION_KEY, LOFY_VERSION); } catch {}
-  };
-  close?.addEventListener('click', dismiss, { once:true });
-  // Auto-dismiss after 12 seconds
-  setTimeout(dismiss, 12000);
-}
 
 // Install PWA pill — captured from beforeinstallprompt
 let _deferredInstallPrompt = null;
@@ -319,5 +296,4 @@ function maybeShowKbdHint(){
   }, 4500);
 }
 
-maybeShowWhatsNew();
 maybeShowKbdHint();
