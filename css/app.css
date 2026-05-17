@@ -542,6 +542,72 @@ html,body.app{height:100%;background:#000;color:var(--paper);overflow:hidden}
 }
 .set-group:first-of-type legend{margin-top:0}
 
+/* Contact form */
+.contact-intro{
+  font-size:13px;line-height:1.6;color:var(--paper-dim);
+  margin-bottom:18px;
+}
+.contact-form{display:flex;flex-direction:column;gap:14px}
+.contact-field{display:flex;flex-direction:column;gap:6px}
+.contact-label{
+  font-size:11px;letter-spacing:.14em;text-transform:uppercase;
+  color:var(--paper-dim);
+}
+.contact-label em{
+  font-style:normal;text-transform:none;letter-spacing:0;
+  color:var(--paper-faint);font-size:10px;margin-left:6px;
+}
+.contact-form input[type=text],
+.contact-form input[type=email],
+.contact-form select,
+.contact-form textarea{
+  width:100%;padding:10px 12px;
+  background:var(--ink-3);color:var(--paper);
+  border:1px solid var(--hairline);
+  font-family:'JetBrains Mono',monospace;font-size:13px;
+  outline:none;transition:border-color .15s ease;
+}
+.contact-form input:focus,
+.contact-form select:focus,
+.contact-form textarea:focus{
+  border-color:var(--acid);
+}
+.contact-form textarea{
+  resize:vertical;min-height:90px;line-height:1.5;
+}
+.contact-form select{cursor:pointer;appearance:none;background-image:linear-gradient(45deg,transparent 50%,var(--paper-dim) 50%),linear-gradient(135deg,var(--paper-dim) 50%,transparent 50%);background-position:right 14px top 50%,right 9px top 50%;background-size:5px 5px;background-repeat:no-repeat}
+.contact-actions{
+  display:flex;gap:10px;margin-top:8px;
+}
+.contact-actions .btn{
+  flex:1;padding:14px 18px;font-size:12px;font-weight:700;
+  letter-spacing:.12em;text-transform:uppercase;
+  background:var(--paper);color:var(--ink);border:none;cursor:pointer;
+  transition:transform .12s ease,box-shadow .12s ease;
+}
+.contact-actions .btn:hover:not(:disabled){
+  transform:translate(-1px,-1px);box-shadow:4px 4px 0 var(--magenta);
+}
+.contact-actions .btn:disabled{opacity:.5;cursor:wait}
+.contact-actions .btn.ghost{
+  background:transparent;color:var(--paper);border:1px solid var(--hairline);
+}
+.contact-actions .btn.ghost:hover{border-color:var(--paper-dim);box-shadow:none}
+
+.contact-status{
+  font-size:12px;padding:10px 12px;margin:0;
+  border:1px solid var(--hairline);
+}
+.contact-status.ok{color:var(--acid);border-color:var(--acid)}
+.contact-status.error{color:var(--magenta);border-color:var(--magenta)}
+
+.kbd-footer{
+  margin-top:24px;padding-top:14px;border-top:1px solid var(--hairline-soft);
+  font-size:12px;color:var(--paper-faint);text-align:center;
+}
+.kbd-footer a{color:var(--cyan);text-decoration:underline}
+.kbd-footer a:hover{color:var(--acid)}
+
 /* Disabled pill state */
 .pill.disabled{opacity:.4;cursor:not-allowed;text-decoration:line-through}
 /* Disabled swatch / swatch-add — host-locked in guest follower mode */

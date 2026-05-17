@@ -276,6 +276,14 @@ window.addEventListener('beforeunload', () => {
   } catch {}
 })();
 
+// Deep-link to the contact form via `#contact` (used by the landing footer).
+if (location.hash === '#contact' && controls.openContactSheet){
+  setTimeout(() => {
+    controls.openContactSheet();
+    try { history.replaceState(null, '', location.pathname + location.search); } catch {}
+  }, 250);
+}
+
 /* ============================================================
    v1.3 additions — install prompt, SW updates, first-time kbd hint
    ============================================================ */

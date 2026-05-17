@@ -341,6 +341,13 @@ export class Controls {
     document.getElementById('btnHelp')?.addEventListener('click', () => this._openOverlay('helpOverlay'));
     document.getElementById('btnParty')?.addEventListener('click', () => this._openRoomSheet());
     document.getElementById('roomChipLeave')?.addEventListener('click', () => this._leaveRoom());
+    // Contact form entry points (Settings sheet button + Help overlay link)
+    document.getElementById('setContactBtn')?.addEventListener('click', () => this.openContactSheet());
+    document.getElementById('helpContactLink')?.addEventListener('click', (e) => {
+      e.preventDefault();
+      this.openContactSheet();
+    });
+    this._wireContactForm();
     document.getElementById('btnRec')?.addEventListener('click', (e) => {
       const btn = e.currentTarget;
       if (btn?.getAttribute('aria-disabled') === 'true'){
@@ -1238,6 +1245,84 @@ export class Controls {
     } catch {}
   }
 
+  // ─────────────────────── CONTACT FORM ───────────────────────
+
+  openContactSheet(){
+    // Close any other overlay first; contact is a fresh focus context
+    document.querySelectorAll('.overlay.show').forEach((o) => o.classList.remove('show'));
+    this._openOverlay('contactOverlay');
+    // Focus the first empty field for snappy typing
+    queueMicrotask(() => {
+      const sheet = document.getElementById('contactOverlay');
+      const firstEmpty = sheet?.querySelector('input[name=email]');
+      if (firstEmpty) firstEmpty.focus();
+    });
+  }
+
+  _wireContactForm(){
+    const form = document.getElementById('contactForm');
+    if (!form || form.dataset.wired) return;
+    form.dataset.wired = '1';
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const status = document.getElementById('contactStatus');
+      const submit = document.getElementById('contactSubmit');
+
+      // Quick client validation (browser also validates, but messages are friendlier)
+      const email = form.querySelector('input[name=email]').value.trim();
+      const msg   = form.querySelector('textarea[name=message]').value.trim();
+      if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){
+        return _setContactStatus(status, 'Please enter a valid email so I can reply.', 'error');
+      }
+      if (msg.length < 5){
+        return _setContactStatus(status, 'Add a few words to your message.', 'error');
+      }
+
+      submit.disabled = true;
+      submit.textContent = 'Sending…';
+      _setContactStatus(status, '', '');
+
+      try {
+        const fd = new FormData(form);
+        // Tag where the message came from so Formspree dashboard can group
+        fd.append('source', 'lofy.vizleo.com/app');
+        fd.append('userAgent', navigator.userAgent);
+
+        const res = await fetch('https://formspree.io/f/xykdlvby', {
+          method: 'POST',
+          headers: { 'Accept': 'application/json' },
+          body: fd,
+        });
+
+        if (res.ok){
+          _setContactStatus(status, 'Sent! Thanks — I\'ll get back to you soon.', 'ok');
+          form.reset();
+          this.onToast && this.onToast('Message sent · thanks!', 'ok');
+          setTimeout(() => this._closeOverlays(), 1800);
+        } else {
+          let detail = '';
+          try {
+            const json = await res.json();
+            if (json && json.errors && json.errors.length) detail = ' (' + json.errors.map(e => e.message).join('; ') + ')';
+          } catch {}
+          _setContactStatus(status,
+            'Send failed' + detail + ' — try again, or message me on GitHub instead.',
+            'error',
+          );
+        }
+      } catch (err){
+        _setContactStatus(status,
+          'No internet? Try again in a moment, or open a GitHub issue.',
+          'error',
+        );
+      } finally {
+        submit.disabled = false;
+        submit.textContent = 'Send message';
+      }
+    });
+  }
+
   /** Auto-join flow triggered by a `#join=lofy1:…` URL hash on app boot.
    *  The user scanned a host's QR with their phone's native camera, which
    *  opened lofy with the connection payload pre-loaded. We jump straight
@@ -1325,4 +1410,12 @@ function fmtTime(s){
   if (!isFinite(s) || s < 0) s = 0;
   const m = Math.floor(s / 60), x = Math.floor(s % 60);
   return m + ':' + String(x).padStart(2, '0');
+}
+
+function _setContactStatus(el, text, kind){
+  if (!el) return;
+  if (!text){ el.hidden = true; el.textContent = ''; el.className = 'contact-status'; return; }
+  el.hidden = false;
+  el.textContent = text;
+  el.className = 'contact-status' + (kind ? ' ' + kind : '');
 }

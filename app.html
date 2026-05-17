@@ -311,6 +311,17 @@
         <button class="toggle on" id="tgAuto" data-key="autoHide" role="switch" aria-checked="true" aria-label="Auto-hide controls" type="button"></button>
       </div>
     </fieldset>
+
+    <fieldset class="set-group">
+      <legend>Get in touch</legend>
+      <div class="set-row">
+        <div>
+          <div class="lbl-md">Found a bug, idea, or want to collaborate?</div>
+          <div class="lbl-sm">Drop me a message — I reply to every one.</div>
+        </div>
+        <button class="btn" id="setContactBtn" type="button">Contact</button>
+      </div>
+    </fieldset>
   </div>
 </div>
 
@@ -448,6 +459,48 @@
   </div>
 </div>
 
+<!-- CONTACT OVERLAY -->
+<div class="overlay" id="contactOverlay">
+  <div class="sheet" role="dialog" aria-labelledby="contactTitle" aria-modal="true">
+    <div class="sheet-head">
+      <h2 id="contactTitle">Get in touch</h2>
+      <button class="close" data-close type="button">Esc ✕</button>
+    </div>
+    <p class="contact-intro">Bug report · feature idea · business inquiry · or just to say hi.<br>I read every message.</p>
+    <form id="contactForm" class="contact-form" novalidate>
+      <label class="contact-field">
+        <span class="contact-label">Name <em>optional</em></span>
+        <input type="text" name="name" maxlength="80" autocomplete="name">
+      </label>
+      <label class="contact-field">
+        <span class="contact-label">Email <em>so I can reply</em></span>
+        <input type="email" name="email" required maxlength="160" autocomplete="email" placeholder="you@example.com">
+      </label>
+      <label class="contact-field">
+        <span class="contact-label">Topic</span>
+        <select name="topic">
+          <option value="hello">Just saying hi</option>
+          <option value="bug">Bug report</option>
+          <option value="feature">Feature suggestion</option>
+          <option value="business">Business / collaboration</option>
+          <option value="other">Other</option>
+        </select>
+      </label>
+      <label class="contact-field">
+        <span class="contact-label">Message</span>
+        <textarea name="message" rows="5" required maxlength="3000" placeholder="What's on your mind?"></textarea>
+      </label>
+      <!-- Honeypot — bots fill this, humans don't see it -->
+      <input type="text" name="_gotcha" tabindex="-1" autocomplete="off" style="position:absolute;left:-9999px">
+      <p class="contact-status" id="contactStatus" hidden></p>
+      <div class="contact-actions">
+        <button type="submit" class="btn" id="contactSubmit">Send message</button>
+        <button type="button" class="btn ghost" data-close>Cancel</button>
+      </div>
+    </form>
+  </div>
+</div>
+
 <!-- KEYBOARD HELP OVERLAY -->
 <div class="overlay" id="helpOverlay">
   <div class="sheet" role="dialog" aria-labelledby="helpTitle" aria-modal="true">
@@ -491,6 +544,9 @@
         </dl>
       </div>
     </div>
+    <p class="kbd-footer">Found a bug or want to collaborate?
+      <a href="#" id="helpContactLink">Drop me a message →</a>
+    </p>
   </div>
 </div>
 
